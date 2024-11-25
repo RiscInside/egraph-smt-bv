@@ -1,0 +1,17 @@
+[package]
+name = "egraph-smt-bv"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.93"
+clap = { version = "4.5.20", features = ["derive"] }
+egglog = { git = "https://github.com/egraphs-good/egglog", rev = "fd933b12626ecc1fc3e67316b265927e824b5bb3" }
+im-rc = "15.1.0"
+itertools = "0.13.0"
+lazy_static = "1.5.0"
+num-bigint = "0.4.6"
+regex = "1.11.1"
+smt2parser = "0.6.1"
+tinybitset = "0.0.2"
+z3 = "0.12.1"

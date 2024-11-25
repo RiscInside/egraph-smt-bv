@@ -1,0 +1,66 @@
+; ## Prelude definitions
+
+; <details>
+; <summary>prelude.egg - essential types/rulesets needed for the solver to function</summary>
+
+; ### Values (`V`)
+; `V` defines all SMT2LIB values. We choose to make values untyped as that
+; reduces rule duplication across types.
+
+(sort V)
+
+; We aren't using any "datatype" declaration, as there could be many ways in
+; which values in `V` are introduced, some of which we may not even know about.
+
+; ### Value lists/variadics (`VS`)
+; `VS` are used for functions accepting variable number of parameters.
+
+(datatype VS (VSCons V VS) (VSNil))
+
+; ### Desugaring ruleset (`desugar`)
+
+; Desugaring ruleset consists of rules for converting one set of primitives
+; into another. Converted primitives should never be matched against in other
+; rules.
+;
+; Currently, evaluation rules for user-defined functions are a part of this
+; pass, which means that no patterns should be written against user-defined
+; functions.
+(ruleset desugar)
+
+; There is a helper ruleset `post-desugar` used to cleanup desugared constracts
+; and remove them from the e-graph.
+
+(ruleset post-desugar)
+
+; Notably, lists of values are removed in the post-desugaring pass.
+
+(rule ((= l (VSCons v vs))) ((delete (VSCons v vs))) :ruleset post-desugar)
+(rule ((= l (VSNil))) ((delete (VSNil))) :ruleset post-desugar)
+
+; ### Saturating ruleset (`safe`)
+
+; `safe` ruleset contains rules that are always eventually saturating.
+
+(ruleset safe)
+
+; This ruleset includes:
+; * Merge-only rules of any kind (e.g. associativity/commutativity)
+; * Constant folding of any kind with subsumption of the original node
+; * Cancellation rules (e.g. in `a + b = a` we rewrite `b` to 0 and remove `+`)
+
+; ### Exploratory ruleset (`unsafe`)
+
+; `unsafe` ruleset contrains all other rules that we deem potentially useful.
+; These never executed to saturation
+
+(ruleset unsafe)
+
+; ### `ProvenUnsat`
+
+; `ProvenUnsat` is used to query the system for whether UNSAT status has been shown. Rules can use `(set (ProvenUnsat) true)` to report discovered inconsistency.
+
+(function ProvenUnsat () bool :merge new)
+(set (ProvenUnsat) false)
+
+; </details>

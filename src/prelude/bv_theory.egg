@@ -1,0 +1,103 @@
+; <details>
+; <summary> bv_theory.egg - definitions from the SMT2LIB FixedSizeBitVectors theory</summary>
+
+; ### Moving bits around
+
+(constructor Concat (V V) V)
+(constructor Extract (i64 i64 V) V)
+(constructor Repeat (i64 V) V)
+(constructor RotateRight (i64 V) V)
+(constructor RotateLeft (i64 V) V)
+(constructor ZeroExtend (i64 V) V)
+(constructor SignExtend (i64 V) V)
+
+; Rust code lowers variadic `concat` operations to binary `Concat` calls.
+
+; ### Unary bitvector operators
+
+(constructor BvNot (V) V)
+(constructor BvNeg (V) V)
+
+; ### Binary bitvector operators
+
+; Some of these support left-associative chaining, but this is handled fully
+; by Rust code
+
+; #### Bitwise logical operators
+
+(constructor BvAnd (V V) V)
+(constructor BvOr (V V) V)
+(constructor BvXor (V V) V)
+(constructor BvNand (V V) V)
+(constructor BvNor (V V) V)
+(constructor BvXNor (V V) V)
+
+; #### Arithmetic operators
+
+(constructor BvAdd (V V) V)
+(constructor BvSub (V V) V)
+(constructor BvMul (V V) V)
+(constructor BvUDiv (V V) V)
+(constructor BvURem (V V) V)
+(constructor BvSDiv (V V) V)
+(constructor BvSRem (V V) V)
+(constructor BvSMod (V V) V)
+
+(constructor BvShl (V V) V)
+(constructor BvLShr (V V) V)
+(constructor BvAShr (V V) V)
+
+; ### Bitvector constants
+
+; Bitvector constant are stored as egglog big integers. This allows us to
+; support bitvectors of any (reasonable) width. We store width together with
+; the bitvector value.
+
+(constructor BvConst (i64 BigInt) V)
+
+; ### `Width` of bit-vectors
+
+; This function returns width of the bit-vector. Currently it is computed
+; bottom-up and returns a single i64 value, but it may be converted to return
+; a symbolic value in the future
+
+(function Width (V) i64)
+
+; #### Propogation rules
+
+; We define width propogation rules for basic primitives. This mostly resemble
+; ones implemented in the Rust sort checker.
+
+(rule ((= e (ITE c e1 e2)) (= w1 (Width e1))) ((set (Width e) w1)) :ruleset safe)
+
+(rule ((= e (Concat lhs rhs)) (= lw (Width lhs)) (= rw (Width rhs)))
+      ((set (Width e) (+ lw rw))) :ruleset safe)
+(rule ((= e (Extract i j exp))) ((set (Width e) (+ (- i j) 1))) :ruleset safe)
+(rule ((= e (Repeat n exp)) (= w (Width exp))) ((set (Width e) (* w n))) :ruleset safe)
+(rule ((= e (RotateLeft _ exp)) (= w (Width exp))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (ZeroExtend n exp)) (= w (Width exp))) ((set (Width e) (+ w n))) :ruleset safe)
+(rule ((= e (SignExtend n exp)) (= w (Width exp))) ((set (Width e) (+ w n))) :ruleset safe)
+
+(rule ((= e (BvNot e1)) (= w (Width e))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvNeg e1)) (= w (Width e))) ((set (Width e) w)) :ruleset safe)
+
+(rule ((= e (BvAnd e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvOr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvXor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvNand e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvNor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvXNor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+
+(rule ((= e (BvAdd e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvSub e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvMul e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvUDiv e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvURem e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvSDiv e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvSRem e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvSMod e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvShl e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvLShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvAShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+
+; </details>

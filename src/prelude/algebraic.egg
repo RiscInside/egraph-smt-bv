@@ -1,0 +1,23 @@
+; <details>
+; <summary>algebraic.egg - Various algebraic-like rules</summary>
+
+; ### Converting subtraction to negation
+
+(rewrite (BvSub a b) (BvAdd a (BvNeg b)) :subsume :ruleset desugar)
+
+; ### Commutativity rules
+
+(birewrite (And a b) (And b a) :ruleset safe)
+(birewrite (BvAnd a b) (BvAnd b a) :ruleset safe)
+(birewrite (BvAdd a b) (BvAdd b a) :ruleset safe)
+(birewrite (BvMul a b) (BvMul b a) :ruleset safe)
+
+; ### Explosive associativity rules
+
+(birewrite (And a (And b c)) (And (And a b) c) :ruleset unsafe)
+(birewrite (BvAdd a (BvAdd b c)) (BvAdd (BvAdd a b) c) :ruleset unsafe)
+(birewrite (BvAnd a (BvAnd b c)) (BvAnd (BvAnd a b) c) :ruleset unsafe)
+(birewrite (BvMul a (BvMul b c)) (BvMul (BvMul a b) c) :ruleset unsafe)
+
+
+; </details>

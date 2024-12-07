@@ -7,10 +7,10 @@
 
 ; ### Commutativity rules
 
-(birewrite (And a b) (And b a) :ruleset safe)
-(birewrite (BvAnd a b) (BvAnd b a) :ruleset safe)
-(birewrite (BvAdd a b) (BvAdd b a) :ruleset safe)
-(birewrite (BvMul a b) (BvMul b a) :ruleset safe)
+(rewrite (And a b) (And b a) :ruleset safe)
+(rewrite (BvAnd a b) (BvAnd b a) :ruleset safe)
+(rewrite (BvAdd a b) (BvAdd b a) :ruleset safe)
+(rewrite (BvMul a b) (BvMul b a) :ruleset safe)
 
 ; ### Explosive associativity rules
 

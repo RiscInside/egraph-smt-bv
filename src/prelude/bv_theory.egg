@@ -63,9 +63,9 @@
 
 (function Width (V) i64)
 
-; #### Propogation rules
+; #### Propagation rules
 
-; We define width propogation rules for basic primitives. This mostly resemble
+; We define width propagation rules for basic primitives. This mostly resemble
 ; ones implemented in the Rust sort checker.
 
 (rule ((= e (ITE c e1 e2)) (= w1 (Width e1))) ((set (Width e) w1)) :ruleset safe)

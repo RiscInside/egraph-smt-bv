@@ -18,8 +18,10 @@ impl Context {
         );
 
         if value.bits == 1 {
+            self.text("Result: **UNSAT**")?;
             println!("unsat");
         } else {
+            self.text("Result: **Unknown**")?;
             println!("unknown");
         }
 

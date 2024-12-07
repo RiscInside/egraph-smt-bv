@@ -81,7 +81,7 @@ These never executed to saturation
 
 </details>
 <details>
-<summary> core_theory.egg - definitions from the SMT2LIB core theory</summary>
+<summary>core_theory.egg - definitions from the SMT2LIB core theory</summary>
 
 ### "Boolean" relation
 
@@ -153,7 +153,7 @@ Binary equality operator `Equal` (and `AllEqual`/`AllDistinct` desugaring)
 
 </details>
 <details>
-<summary> bv_theory.egg - definitions from the SMT2LIB FixedSizeBitVectors theory</summary>
+<summary>bv_theory.egg - definitions from the SMT2LIB FixedSizeBitVectors theory</summary>
 
 ### Moving bits around
 

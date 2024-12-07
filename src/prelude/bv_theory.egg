@@ -1,5 +1,5 @@
 ; <details>
-; <summary> bv_theory.egg - definitions from the SMT2LIB FixedSizeBitVectors theory</summary>
+; <summary>bv_theory.egg - definitions from the SMT2LIB FixedSizeBitVectors theory</summary>
 
 ; ### Moving bits around
 

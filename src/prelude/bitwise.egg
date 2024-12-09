@@ -1,4 +1,4 @@
-; <summary>Simplifications of boolean/bitwise functions based on AND/NOT lowering (AIGs)</summary>
+; <summary>bitwise.egg - simplifications of boolean/bitwise functions based on AND/NOT lowering (AIGs)</summary>
 
 ; We define a set of rules inspired by AIGs simplifications as seen in
 ; literature. We are not directly using And/Not constructors directly here

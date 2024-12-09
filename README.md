@@ -10,6 +10,6 @@ cargo run ./solvable/add_four_two_ways.smt2 -e add_four_two_ways.out.egg -m add_
 
 `-e add_four_two_ways.out.egg` dumps solver's execution history as runnable egglog code to `add_four_two_ways.out.egg`. You can run this code directly with `egglog` or copy it to [the browser playground](https://egraphs-good.github.io/egglog/).
 
-`-m add_four_two_ways.out.md` dumps solver's execution history to `add_four_two_ways.out.md`. For example of what that looks like see [sovlable/add_four_two_ways.md](./solvable/add_four_two_ways.md).
+`-m add_four_two_ways.out.md` dumps solver's execution history to `add_four_two_ways.out.md`.
 
 In both cases output is updated on the go so that it's easier to see where we get stuck.

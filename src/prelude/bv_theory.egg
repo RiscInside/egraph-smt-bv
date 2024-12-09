@@ -1,4 +1,3 @@
-; <details>
 ; <summary>bv_theory.egg - definitions from the SMT2LIB FixedSizeBitVectors theory</summary>
 
 ; ### Moving bits around
@@ -47,6 +46,12 @@
 (constructor BvLShr (V V) V)
 (constructor BvAShr (V V) V)
 
+; We also define custom constant shifts to simplify some rewrite rules.
+
+(constructor BvShlC (V i64) V)
+(constructor BvLShrC (V i64) V)
+(constructor BvAShrC (V i64) V)
+
 ; ### Bitvector constants
 
 ; Bitvector constant are stored as egglog big integers. This allows us to
@@ -54,6 +59,11 @@
 ; the bitvector value.
 
 (constructor BvConst (i64 BigInt) V)
+
+; We also define `(BvAll b w)` to represent all-zero/all-one bitvectors
+; of width `w` (`b = false` for all-zeros and `b = true` for all-ones).
+
+(constructor BvAll (bool i64) V)
 
 ; ### `Width` of bit-vectors
 
@@ -100,4 +110,9 @@
 (rule ((= e (BvLShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
 (rule ((= e (BvAShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
 
-; </details>
+(rule ((= e (BvConst w v))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvAll b w))) ((set (Width e) w)) :ruleset safe)
+
+(rule ((= e (BvShlC e1 c)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvLShrC e1 c)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvAShrC e1 c)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)

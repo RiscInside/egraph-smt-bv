@@ -5,6 +5,7 @@ pub(crate) mod eggloglog;
 pub(crate) mod markdown;
 pub(crate) mod output;
 pub(crate) mod parser;
+pub(crate) mod preprocess;
 
 /// One log item.
 #[derive(Clone, Debug)]

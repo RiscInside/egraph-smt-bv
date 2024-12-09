@@ -1,0 +1,11 @@
+; <summary>propositional.egg - Lifting booleans to propositions</summary>
+
+; ### Deriving UNSAT from boolean constant propagation
+
+(rule ((= (B true) (B false))) ((set (ProvenUnsat) true)) :ruleset safe)
+
+; ### Equality rules
+
+(rule ((= tt (Equal e1 e2))) ((union e1 e2)) :ruleset safe)
+(rewrite (Equal e e) tt :ruleset safe)
+(rewrite (Equal tt ff) ff :ruleset safe)

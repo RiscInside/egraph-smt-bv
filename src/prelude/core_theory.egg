@@ -1,4 +1,3 @@
-; <details>
 ; <summary>core_theory.egg - definitions from the SMT2LIB core theory</summary>
 
 ; ### "Boolean" relation
@@ -56,5 +55,3 @@
 (rewrite (AllDistinctFrom v (VSNil)) tt :subsume :ruleset desugar)
 (rewrite (AllDistinctFrom v (VSCons v1 vs))
           (And (Not (Equal v v1)) (AllDistinctFrom v vs)) :subsume :ruleset desugar)
-
-; </details>

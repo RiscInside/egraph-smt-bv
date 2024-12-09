@@ -1,0 +1,94 @@
+; <summary>Simplifications of boolean/bitwise functions based on AND/NOT lowering (AIGs)</summary>
+
+; We define a set of rules inspired by AIGs simplifications as seen in
+; literature. We are not directly using And/Not constructors directly here
+; instead of defining separate AIG ones.
+
+; ### Converting other boolean operators to and/not combinations and back
+
+; We have rules for lowering `Or`, `Xor`, and `Implies` to `Not` and `And`.
+; We choose to keep original e-nodes in the e-graph so that rewrite rules can
+; still produce those e-nodes when convinient. There is no subsumption either, 
+; as aig simplification rules won't get any performance boost from subsuming
+; e-nodes from other tables.
+
+; We assume that no other rule matches on `Xor`/`Or`/`Implies`. We might need to
+; change the below to `birewrite` if that changes, but that wouldn't work too
+; well for `Xor` - the gj the rule for `Xor` might be a bit too expensive.
+
+(rewrite (Or e1 e2) (Not (And (Not e1) (Not e2))) :ruleset safe)
+(rewrite (Xor e1 e2)
+         (Not (And (Not (And e1 (Not e2))) (Not (And (Not e1) e2))))
+         :ruleset safe)
+(rewrite (Implies e1 e2) (Not (And e1 (Not e2))) :ruleset safe)
+
+; ### Converting bitwise operators on bitvectors.
+
+; We can have similar rule on bitvectors (which are auto-derived). There are
+; a few other operators for bitvectors however for which there are no boolean
+; equivalents.
+
+(rewrite (BvNand e1 e2) (Not (And e1 e2)) :ruleset safe)
+(rewrite (BvNor e1 e2) (BvAnd (BvNot e1) (BvNot e2)) :ruleset safe)
+(rewrite (BvXNor e1 e2) (BvAnd (BvNot (BvAnd e1 (BvNot e2)))
+                        (BvNot (BvAnd (BvNot e1) e2))) :ruleset safe)
+
+; ### `Not` folding
+
+; One rule implicit in AIGs is `Not` folding. These rules can safely be
+; subsuming.
+
+(rewrite (Not (Not a)) a :subsume :ruleset safe)
+
+; We can propogate constants upwards through `Not`.
+
+(rewrite (Not (B b)) (B (not b)) :subsume :ruleset safe)
+(rule ((= (Not e) (B b))) ((subsume (Not e)) (union e (B (not b)))) :ruleset safe)
+(rule ((= (BvNot e) (BvAll b w)) (= w (Width e))) ((subsume (BvNot e)) (union e (BvAll (not b) w))) :ruleset safe)
+
+; ### Pushing constant booleans through And
+
+(rule ((= tt (And a b))) ((union tt a) (union tt b)
+      (subsume (And a b))) :ruleset safe)
+(rule ((= (BvAll true w) (BvAnd a b)) (= w (Width a)))
+      ((union (BvAnd a b) a) (union (BvAnd a b) b) (subsume (BvAnd a b)))
+      :ruleset safe)
+
+; ### `AIG` simplifications
+
+; These rewrite rules are taken from
+; [here](https://cca.informatik.uni-freiburg.de/biere/talks/Biere-GSSLBM06-talk.pdf).
+
+; #### O1 rules
+
+; Note that we already have commutativity, so we don't have to invert those
+; patterns.
+
+(rewrite (And a tt) a :subsume :ruleset safe)
+(rewrite (And a ff) ff :subsume :ruleset safe)
+(rewrite (And a a) a :subsume :ruleset safe)
+(rewrite (And a (Not a)) ff :subsume :ruleset safe)
+
+; #### O2 rules
+
+; Contradiction
+(rewrite (And (And (Not a) b) a) ff :subsume :ruleset safe)
+(rewrite (And (And a b) (Not a)) ff :subsume :ruleset safe)
+(rewrite (And (And a b) (And (Not a) c)) ff :subsume :ruleset safe)
+; Subsumption
+(rewrite (And (Not (And (Not a) b)) a) a :subsume :ruleset safe)
+(rewrite (And (Not (And a b)) (Not a)) (Not a) :subsume :ruleset safe)
+(rewrite (And (Not (And (Not a) b)) (And a c)) (And a c) :subsume :ruleset safe)
+(rewrite (And (Not (And a b)) (And (Not a) c)) (And (Not a) c) :subsume :ruleset safe)
+; Idempotentence
+(rewrite (And (And a b) a) (And a b) :subsume :ruleset safe)
+(rewrite (And (Not (And a b)) (Not (And a (Not b)))) (Not a) :subsume :ruleset safe)
+
+; #### O3 rules
+
+(rewrite (And (Not (And a b)) b) (And (Not a) b) :subsume :ruleset safe)
+(rewrite (And (Not (And a b)) (And b c)) (And (Not a) (And b c)) :subsume :ruleset safe)
+
+; #### O4 rules
+
+(rewrite (And (And a b) (And a d)) (And (And a b) d) :subsume :ruleset safe)

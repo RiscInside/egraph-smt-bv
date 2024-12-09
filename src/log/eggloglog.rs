@@ -26,6 +26,7 @@ impl LogStream for EgglogLogStream {
     fn egglog_code_pre_exec(&mut self, source: &str) -> anyhow::Result<()> {
         self.trailing_newline = false;
         write!(self.writer, "{source}\n")?;
+        self.writer.flush()?;
         Ok(())
     }
 

@@ -1,5 +1,5 @@
-//// Preprocessing pass for AIG log book. This code pattern matches against
-//// rewrite rules on boolean values and derives value equivalents.
+//// Preprocessing pass for bitwise log book. This code pattern matches against
+//// rewrite rules on boolean values and derives bitvector equivalents.
 
 use egglog::ast::{
     Action, Change, Command, Expr, GenericActions, GenericFact, Literal, Rewrite, Rule, Symbol,
@@ -56,40 +56,21 @@ fn bool_expr_to_bv(w_used: &mut bool, expr: &Expr) -> Option<Expr> {
     }
 }
 
-fn process_command(command: &Command) -> Option<Command> {
-    let Command::Rewrite(
-        ruleset,
-        Rewrite {
-            lhs,
-            rhs,
-            conditions,
-            ..
-        },
-        subsume,
-    ) = command
-    else {
-        return None;
-    };
-
-    // No support for condition at the moment
-    if conditions.len() > 0 {
-        return None;
-    }
-
+fn process_rewrite(ruleset: Symbol, lhs: &Expr, rhs: &Expr, subsume: bool) -> Option<Command> {
     let mut width_required = false;
     let lhs = bool_expr_to_bv(&mut width_required, lhs)?;
     let rhs = bool_expr_to_bv(&mut width_required, rhs)?;
 
     if !width_required {
         return Some(Command::Rewrite(
-            *ruleset,
+            ruleset,
             Rewrite {
                 span: DUMMY_SPAN.clone(),
                 lhs,
                 rhs,
                 conditions: vec![],
             },
-            *subsume,
+            subsume,
         ));
     }
 
@@ -99,7 +80,7 @@ fn process_command(command: &Command) -> Option<Command> {
         rhs,
     )];
 
-    if *subsume {
+    if subsume {
         let Expr::Call(_, lhs_name, lhs_args) = lhs.clone() else {
             return None;
         };
@@ -113,7 +94,7 @@ fn process_command(command: &Command) -> Option<Command> {
 
     Some(Command::Rule {
         name: "".into(),
-        ruleset: *ruleset,
+        ruleset: ruleset,
         rule: Rule {
             span: DUMMY_SPAN.clone(),
             head: GenericActions(actions),
@@ -131,16 +112,50 @@ fn process_command(command: &Command) -> Option<Command> {
     })
 }
 
+fn process_command(source_command: &Command, generated: &mut Vec<Command>) {
+    match source_command {
+        Command::Rewrite(
+            ruleset,
+            Rewrite {
+                lhs,
+                rhs,
+                conditions,
+                ..
+            },
+            subsume,
+        ) if conditions.is_empty() => {
+            if let Some(cmd) = process_rewrite(*ruleset, lhs, rhs, *subsume) {
+                generated.push(cmd);
+            }
+        }
+        Command::BiRewrite(
+            ruleset,
+            Rewrite {
+                lhs,
+                rhs,
+                conditions,
+                ..
+            },
+        ) if conditions.is_empty() => {
+            if let Some(cmd) = process_rewrite(*ruleset, lhs, rhs, false) {
+                generated.push(cmd);
+            }
+            if let Some(cmd) = process_rewrite(*ruleset, rhs, lhs, false) {
+                generated.push(cmd);
+            }
+        }
+        _ => {}
+    }
+}
+
 impl Log {
-    pub(crate) fn generate_aig_rules(mut self) -> Log {
+    pub(crate) fn generate_bv_rules(mut self) -> Log {
         let mut new_commands = vec![];
         for (item, _) in self.items.iter() {
             match item {
                 LogItem::Egglog { commands, .. } => {
                     for command in commands {
-                        if let Some(generated_bv_rewrite) = process_command(command) {
-                            new_commands.push(generated_bv_rewrite);
-                        }
+                        process_command(command, &mut new_commands);
                     }
                 }
                 _ => {}

@@ -6,7 +6,7 @@ use super::{Log, LogItem};
 
 /// Preprocessing pass for AIG logbook that converts boolean rules to those
 /// on bitvectors
-pub(crate) mod aig;
+pub(crate) mod bv_from_bool_rules;
 
 impl Log {
     pub(crate) fn add_generated_code(&mut self, commands: Vec<egglog::ast::Command>) {

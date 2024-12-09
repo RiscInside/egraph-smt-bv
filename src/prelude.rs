@@ -16,8 +16,8 @@ fn prelude_logbook() -> Log {
         .followed_by(embed!("prelude/propositional.egg").wrap_in_details())
         .followed_by(embed!("prelude/ac.egg").wrap_in_details())
         .followed_by(
-            embed!("prelude/aig.egg")
-                .generate_aig_rules()
+            embed!("prelude/bitwise.egg")
+                .generate_bv_rules()
                 .wrap_in_details(),
         )
         .followed_by(embed!("prelude/add.egg").wrap_in_details())

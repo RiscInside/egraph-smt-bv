@@ -12,11 +12,7 @@
 ; as aig simplification rules won't get any performance boost from subsuming
 ; e-nodes from other tables.
 
-; We assume that no other rule matches on `Xor`/`Or`/`Implies`. We might need to
-; change the below to `birewrite` if that changes, but that wouldn't work too
-; well for `Xor` - the gj the rule for `Xor` might be a bit too expensive.
-
-(rewrite (Or e1 e2) (Not (And (Not e1) (Not e2))) :ruleset safe)
+(birewrite (Or e1 e2) (Not (And (Not e1) (Not e2))) :ruleset safe)
 (rewrite (Xor e1 e2)
          (Not (And (Not (And e1 (Not e2))) (Not (And (Not e1) e2))))
          :ruleset safe)
@@ -53,6 +49,11 @@
 (rule ((= (BvAll true w) (BvAnd a b)) (= w (Width a)))
       ((union (BvAnd a b) a) (union (BvAnd a b) b) (subsume (BvAnd a b)))
       :ruleset safe)
+
+; ### And cycle resolution
+
+(rule ((= e (And e1 e))) ((subsume (And e1 e)) (union e e1)) :ruleset safe)
+(rule ((= e (And e e1))) ((subsume (And e e1)) (union e e1)) :ruleset safe)
 
 ; ### `AIG` simplifications
 
@@ -92,3 +93,19 @@
 ; #### O4 rules
 
 (rewrite (And (And a b) (And a d)) (And (And a b) d) :subsume :ruleset safe)
+
+; ### Commutativity of `And`
+
+(rewrite (And a b) (And b a) :ruleset safe)
+
+; Commutativity of `Or` is derivable.
+
+; ### Associativity of `And` and `Or`
+
+(birewrite (And (And a b) c) (And a (And b c)) :ruleset unsafe)
+(birewrite (Or (Or a b) c) (Or a (Or b c)) :ruleset unsafe)
+
+; ### Distributivity of `And` and `Or`
+
+(rewrite (And a (Or b c)) (Or (And a b) (And a c)) :ruleset unsafe)
+(rewrite (Or a (And b c)) (And (Or a b) (Or a c)) :ruleset unsafe)

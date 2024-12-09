@@ -71,7 +71,7 @@
 ; bottom-up and returns a single i64 value, but it may be converted to return
 ; a symbolic value in the future
 
-(function Width (V) i64)
+(function Width (V) i64 :no-merge)
 
 ; #### Propagation rules
 

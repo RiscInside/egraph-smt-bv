@@ -1,6 +1,6 @@
 ; ### Running `check-sat`
 
 (run-schedule
-    (repeat 10
+    (repeat 30
         (saturate (run safe :until (= true (ProvenUnsat))))
-        (repeat 5 (run unsafe :until (= true (ProvenUnsat))))))
+        (run unsafe :until (= true (ProvenUnsat)))))

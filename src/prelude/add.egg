@@ -1,5 +1,13 @@
 ; <summary>add.egg - Addition, subtraction, and negation rules</summary>
 
+; ### Commutativity
+
+(rewrite (BvAdd a b) (BvAdd b a) :ruleset safe)
+
+; ### Explosive associativity
+
+(rewrite (BvAdd (BvAdd a b) c) (BvAdd a (BvAdd b c)) :ruleset unsafe)
+
 ; ### Converting subtraction to negation
 
 (rewrite (BvSub a b) (BvAdd a (BvNeg b)) :subsume :ruleset safe)

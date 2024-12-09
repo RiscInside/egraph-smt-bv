@@ -1,0 +1,9 @@
+; <summary>mul.egg - Multiplication rules</summary>
+
+; ### Commutativity
+
+(rewrite (BvMul a b) (BvMul b a) :ruleset safe)
+
+; ### Associativity
+
+(birewrite (BvMul a (BvMul b c)) (BvMul (BvMul a b) c) :ruleset unsafe)

@@ -14,13 +14,13 @@ fn prelude_logbook() -> Log {
         .followed_by(embed!("prelude/core_theory.egg").wrap_in_details())
         .followed_by(embed!("prelude/bv_theory.egg").wrap_in_details())
         .followed_by(embed!("prelude/propositional.egg").wrap_in_details())
-        .followed_by(embed!("prelude/ac.egg").wrap_in_details())
         .followed_by(
             embed!("prelude/bitwise.egg")
                 .generate_bv_rules()
                 .wrap_in_details(),
         )
         .followed_by(embed!("prelude/add.egg").wrap_in_details())
+        .followed_by(embed!("prelude/mul.egg").wrap_in_details())
 }
 
 lazy_static! {

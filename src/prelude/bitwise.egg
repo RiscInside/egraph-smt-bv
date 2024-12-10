@@ -50,11 +50,6 @@
       ((union (BvAnd a b) a) (union (BvAnd a b) b) (subsume (BvAnd a b)))
       :ruleset safe)
 
-; ### And cycle resolution
-
-(rule ((= e (And e1 e))) ((subsume (And e1 e)) (union e e1)) :ruleset safe)
-(rule ((= e (And e e1))) ((subsume (And e e1)) (union e e1)) :ruleset safe)
-
 ; ### `AIG` simplifications
 
 ; These rewrite rules are taken from

@@ -4,6 +4,7 @@ pub(crate) mod context;
 pub(crate) mod log;
 pub(crate) mod prelude;
 pub(crate) mod smt2lib;
+pub(crate) mod statistics;
 
 use anyhow::bail;
 use clap::Parser;

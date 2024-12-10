@@ -25,6 +25,10 @@ impl Context {
             println!("unknown");
         }
 
+        self.newline()?;
+        self.print_stats()?;
+        self.newline()?;
+
         Ok(())
     }
 }

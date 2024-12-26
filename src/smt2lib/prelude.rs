@@ -26,7 +26,7 @@ impl Context {
 
             "ite".to_owned() => Def::simple(ITE, Lowering::direct("ITE")),
 
-            "concat".to_owned() => Def::simple(Concat, Lowering::variadic("ConcatAll")),
+            "concat".to_owned() => Def::simple(Concat, Lowering::left_associative("Concat")),
 
             "extract".to_owned() => Def { expected_indices: 2, sort_check: Extract, lowering: Lowering::direct("Extract") },
             "repeat".to_owned() => Def { expected_indices: 1, sort_check: Repeat, lowering: Lowering::direct("Repeat") },

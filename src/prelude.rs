@@ -19,6 +19,7 @@ fn prelude_logbook() -> Log {
                 .generate_bv_rules()
                 .wrap_in_details(),
         )
+        .followed_by(embed!("prelude/bpnf.egg").wrap_in_details())
         .followed_by(embed!("prelude/add.egg").wrap_in_details())
         .followed_by(embed!("prelude/mul.egg").wrap_in_details())
 }

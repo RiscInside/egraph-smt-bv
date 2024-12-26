@@ -35,7 +35,7 @@ impl LocalContext<'_> {
                 NonZeroU32::new(4).unwrap(),
             ),
             concrete::Constant::Binary(vec) => (
-                digits_to_biguint(vec.iter().map(|x| *x as u8), 16),
+                digits_to_biguint(vec.iter().map(|x| *x as u8), 2),
                 vec.len(),
                 NonZeroU32::new(1).unwrap(),
             ),

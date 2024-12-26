@@ -8,6 +8,11 @@
 
 (rule ((= (BvConst w1 v1) (BvConst w2 v2)) (!= v1 v2)) ((set (ProvenUnsat) true)) :ruleset safe)
 
+; ### If-then-else constant folding
+
+(rewrite (ITE tt a b) a :subsume :ruleset safe)
+(rewrite (ITE ff a b) b :subsume :ruleset safe)
+
 ; ### Equality rules
 
 (rule ((= tt (Equal e1 e2))) ((union e1 e2)) :ruleset safe)

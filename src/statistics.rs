@@ -14,18 +14,33 @@ fn format_rule_name(given: &str) -> String {
         .replace("rewrite_var__", "|rv|")
 }
 
-const DISPLAYED_RULES: usize = 5;
+const DISPLAYED_RULES_DEFAULT: usize = 5;
 
 fn top_entries<T: std::cmp::Ord + Copy>(
     map: &IndexMap<Symbol, T>,
     threshold: T,
 ) -> Vec<(String, T)> {
+    let mut output_size: usize = 0;
+
+    // Rules that are explicitly named something ending in question mark are
+    // always incldued in output. This is quite useful if we want to check
+    // whether some particular rule has been applied (even once), as chances
+    // are this rule would not be in top 5
     map.iter()
         .map(|(name, value)| (*name, *value))
         .sorted_by_key(|(_, value)| std::cmp::Reverse(*value))
-        .take_while(|(_, value)| (*value > threshold))
+        .filter(|(name, value)| {
+            (name.as_str().ends_with('?'))
+                || (*value > threshold) && {
+                    if output_size >= DISPLAYED_RULES_DEFAULT {
+                        false
+                    } else {
+                        output_size += 1;
+                        true
+                    }
+                }
+        })
         .map(|(name, value)| (format_rule_name(name.as_str()), value))
-        .take(DISPLAYED_RULES)
         .collect::<Vec<_>>()
 }
 
@@ -93,13 +108,13 @@ impl Context {
         }
         self.newline()?;
 
-        self.text("#### Top 5 rules by search time")?;
+        self.text("#### Top {} rules by search time")?;
         for (i, (name, time)) in top_search_time.iter().enumerate() {
             self.text(&format!("{}) Rule `{name}` ({time:?})", i + 1))?;
         }
         self.newline()?;
 
-        self.text("#### Top 5 rules by application time")?;
+        self.text("#### Top rules by application time")?;
         for (i, (name, time)) in top_apply_time.iter().enumerate() {
             self.text(&format!("{}) Rule `{name}` ({time:?})", i + 1))?;
         }

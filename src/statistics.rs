@@ -32,9 +32,21 @@ fn top_entries<T: std::cmp::Ord + Copy>(
 fn get_ruleset_times(report: &RunReport, name: &str) -> (Duration, Duration, Duration) {
     let symbol = Symbol::from(name);
     (
-        report.search_time_per_ruleset[&symbol],
-        report.apply_time_per_ruleset[&symbol],
-        report.rebuild_time_per_ruleset[&symbol],
+        report
+            .search_time_per_ruleset
+            .get(&symbol)
+            .cloned()
+            .unwrap_or(Duration::ZERO),
+        report
+            .apply_time_per_ruleset
+            .get(&symbol)
+            .cloned()
+            .unwrap_or(Duration::ZERO),
+        report
+            .rebuild_time_per_ruleset
+            .get(&symbol)
+            .cloned()
+            .unwrap_or(Duration::ZERO),
     )
 }
 

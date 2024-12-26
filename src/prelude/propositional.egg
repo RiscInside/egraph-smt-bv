@@ -4,6 +4,10 @@
 
 (rule ((= (B true) (B false))) ((set (ProvenUnsat) true)) :ruleset safe)
 
+; Similar rule exists for bitvector constants.
+
+(rule ((= (BvConst w1 v1) (BvConst w2 v2)) (!= v1 v2)) ((set (ProvenUnsat) true)) :ruleset safe)
+
 ; ### Equality rules
 
 (rule ((= tt (Equal e1 e2))) ((union e1 e2)) :ruleset safe)

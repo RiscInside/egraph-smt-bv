@@ -5,7 +5,7 @@ use crate::smt2lib::{
     term::{LocalContext, Lowered},
 };
 use anyhow::{anyhow, bail, Context as _};
-use egglog::ast::Expr;
+use egglog::{call, lit};
 use lazy_static::lazy_static;
 use regex::Regex;
 use smt2parser::{concrete, visitors::Index, Numeral};
@@ -41,11 +41,9 @@ impl LocalContext<'_> {
             ),
             _ => bail!("Only bitvector constants are supported"),
         };
-        let value = Expr::call_no_span(
+        let value = call!(
             "from-string",
-            [Expr::lit_no_span(egglog::ast::Symbol::new(format!(
-                "{value}"
-            )))],
+            [lit!(egglog::ast::Symbol::new(format!("{value}")))]
         );
 
         let digits = NonZeroU32::try_from(u32::try_from(digits).context("Too many digits")?)
@@ -55,7 +53,7 @@ impl LocalContext<'_> {
             .checked_mul(bits_per_digit)
             .ok_or_else(|| anyhow!("Too many digits"))?;
 
-        let expr = Expr::call_no_span("BvConst", [Expr::lit_no_span(bits.get() as i64), value]);
+        let expr = call!("BvConst", [lit!(bits.get() as i64), value]);
 
         Ok(Lowered {
             expr,
@@ -77,11 +75,9 @@ impl LocalContext<'_> {
         };
 
         let (_, [value_as_string]) = captures.extract();
-        let value = Expr::call_no_span(
+        let value = call!(
             "from-string",
-            [Expr::lit_no_span(egglog::ast::Symbol::new(format!(
-                "{value_as_string}"
-            )))],
+            [lit!(egglog::ast::Symbol::new(format!("{value_as_string}")))]
         );
 
         let width = NonZeroU32::try_from(
@@ -90,7 +86,7 @@ impl LocalContext<'_> {
         .context("Bit-vector literals can't be empty")?;
 
         Ok(Some(Lowered {
-            expr: Expr::call_no_span("BvConst", [Expr::lit_no_span(width.get() as i64), value]),
+            expr: call!("BvConst", [lit!(width.get() as i64), value]),
             sort: Sort::BitVec(width),
         }))
     }

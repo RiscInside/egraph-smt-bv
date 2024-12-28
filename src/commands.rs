@@ -1,7 +1,10 @@
 use anyhow::bail;
-use egglog::ast::{
-    Action, Change, Command, Expr, GenericActions, GenericFact, Rule, RunConfig, Schedule, Schema,
-    Symbol, DUMMY_SPAN,
+use egglog::{
+    ast::{
+        call, lit, var, Action, Change, Command, Expr, GenericActions, GenericFact, Rule,
+        RunConfig, Schedule, Schema, Symbol,
+    },
+    span,
 };
 use smt2parser::concrete;
 
@@ -25,15 +28,15 @@ fn fun_decl_egglog_command(name: &str, params_len: usize) -> Command {
         },
         cost: None,
         unextractable: true,
-        span: DUMMY_SPAN.clone(),
+        span: span!(),
     }
 }
 
 fn saturate_schedule(ruleset: &'static str) -> Schedule {
     Schedule::Saturate(
-        DUMMY_SPAN.clone(),
+        span!(),
         Box::new(egglog::ast::GenericSchedule::Run(
-            DUMMY_SPAN.clone(),
+            span!(),
             RunConfig {
                 ruleset: ruleset.into(),
                 until: None,
@@ -45,7 +48,7 @@ fn saturate_schedule(ruleset: &'static str) -> Schedule {
 impl Context {
     pub(crate) fn run_desugar(&mut self) -> anyhow::Result<()> {
         self.run_cmds(vec![Command::RunSchedule(Schedule::Sequence(
-            DUMMY_SPAN.clone(),
+            span!(),
             vec![
                 saturate_schedule("desugar"),
                 saturate_schedule("post-desugar"),
@@ -69,17 +72,13 @@ impl Context {
             let mut egglog_commands = vec![];
 
             for (let_var, let_def) in std::mem::take(&mut local_ctx.generated_lets) {
-                egglog_commands.push(Command::Action(Action::Let(
-                    DUMMY_SPAN.clone(),
-                    let_var,
-                    let_def,
-                )));
+                egglog_commands.push(Command::Action(Action::Let(span!(), let_var, let_def)));
             }
 
             egglog_commands.push(Command::Action(Action::Union(
-                DUMMY_SPAN.clone(),
+                span!(),
                 lowered.expr,
-                Expr::var_no_span("tt"),
+                var!("tt"),
             )));
 
             egglog_commands
@@ -148,26 +147,23 @@ impl Context {
 
         if let Sort::BitVec(width) = sort {
             // Add a rule for computing bitvector width
-            let res = Expr::var_no_span("|res|");
+            let res = var!("|res|");
             let args: Vec<Expr> = (0..params.len())
-                .map(|i| Expr::var_no_span(&format!("|arg{i}|")))
+                .map(|i| var!(&format!("|arg{i}|")))
                 .collect();
 
             commands.push(Command::Rule {
                 name: format!("{name}-width").into(),
                 ruleset: "safe".into(),
                 rule: Rule {
-                    span: DUMMY_SPAN.clone(),
+                    span: span!(),
                     head: GenericActions(vec![Action::Set(
-                        DUMMY_SPAN.clone(),
+                        span!(),
                         "Width".into(),
                         vec![res.clone()],
-                        Expr::lit_no_span(width.get() as i64),
+                        lit!(width.get() as i64),
                     )]),
-                    body: vec![GenericFact::Eq(
-                        DUMMY_SPAN.clone(),
-                        vec![res, Expr::call_no_span(name, args)],
-                    )],
+                    body: vec![GenericFact::Eq(span!(), res, call!(name, args))],
                 },
             })
         }
@@ -206,7 +202,7 @@ impl Context {
                     );
                 };
 
-                let param_expr = Expr::var_no_span(param_name.0.clone());
+                let param_expr = var!(param_name.0.clone());
                 params_exprs.push(param_expr.clone());
 
                 vacant_entry.insert(Lowered {
@@ -229,20 +225,16 @@ impl Context {
 
             let mut actions = vec![];
             for (let_var, let_def) in std::mem::take(&mut local_ctx.generated_lets) {
-                actions.push(Action::Let(DUMMY_SPAN.clone(), let_var, let_def));
+                actions.push(Action::Let(span!(), let_var, let_def));
             }
-            actions.push(Action::Union(
-                DUMMY_SPAN.clone(),
-                eclass_expr.clone(),
-                term.expr,
-            ));
+            actions.push(Action::Union(span!(), eclass_expr.clone(), term.expr));
             actions.push(Action::Change(
-                DUMMY_SPAN.clone(),
+                span!(),
                 Change::Delete,
                 Symbol::new(sig.name.0.to_owned()),
                 params_exprs.clone(),
             ));
-            let enode_expr = egglog::ast::Expr::call_no_span(&sig.name.0, params_exprs);
+            let enode_expr = egglog::ast::call!(&sig.name.0, params_exprs);
 
             vec![
                 fun_decl_egglog_command(&sig.name.0, sig.parameters.len()),
@@ -250,12 +242,9 @@ impl Context {
                     name: sig.name.0.to_owned().into(),
                     ruleset: "desugar".into(),
                     rule: Rule {
-                        span: DUMMY_SPAN.clone(),
+                        span: span!(),
                         head: GenericActions(actions),
-                        body: vec![GenericFact::Eq(
-                            DUMMY_SPAN.clone(),
-                            vec![eclass_expr, enode_expr],
-                        )],
+                        body: vec![GenericFact::Eq(span!(), eclass_expr, enode_expr)],
                     },
                 },
             ]

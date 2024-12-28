@@ -1,30 +1,27 @@
 //// Preprocessing pass for bitwise log book. This code pattern matches against
 //// rewrite rules on boolean values and derives bitvector equivalents.
 
-use egglog::ast::{
-    Action, Change, Command, Expr, GenericActions, GenericFact, Literal, Rewrite, Rule, Symbol,
-    DUMMY_SPAN,
+use egglog::{
+    ast::{
+        call, lit, var, Action, Change, Command, Expr, GenericActions, GenericFact, Literal,
+        Rewrite, Rule, Symbol,
+    },
+    span,
 };
 
 use crate::log::{Log, LogItem};
 
 fn bool_const_to_bv(w_used: &mut bool, val: bool) -> Expr {
     *w_used = true;
-    Expr::call_no_span(
-        "BvAll",
-        vec![
-            Expr::lit_no_span(Literal::Bool(val)),
-            Expr::var_no_span("|w|"),
-        ],
-    )
+    call!("BvAll", [lit!(Literal::Bool(val)), var!("|w|")])
 }
 
 fn bool_fcall_to_bv(w_used: &mut bool, sym: Symbol, args: &[egglog::ast::Expr]) -> Option<Expr> {
-    Some(Expr::call_no_span(
+    Some(call!(
         sym,
         args.iter()
             .map(|expr| bool_expr_to_bv(w_used, expr))
-            .collect::<Option<Vec<_>>>()?,
+            .collect::<Option<Vec<_>>>()?
     ))
 }
 
@@ -35,17 +32,14 @@ fn bool_expr_to_bv(w_used: &mut bool, expr: &Expr) -> Option<Expr> {
             "w" => None,
             "tt" => Some(bool_const_to_bv(w_used, true)),
             "ff" => Some(bool_const_to_bv(w_used, false)),
-            _ => Some(Expr::var_no_span(*head)),
+            _ => Some(var!(*head)),
         },
         Expr::Call(_, head, args) => match head.as_str() {
             "B" => {
                 *w_used = true;
                 assert_eq!(args.len(), 1, "expected at most one argument for B");
                 let arg = args[0].clone();
-                Some(Expr::call_no_span(
-                    "BvAll",
-                    vec![arg, Expr::var_no_span("|w|")],
-                ))
+                Some(call!("BvAll", [arg, var!("|w|")]))
             }
             "And" => bool_fcall_to_bv(w_used, "BvAnd".into(), &args),
             "Or" => bool_fcall_to_bv(w_used, "BvOr".into(), &args),
@@ -65,7 +59,7 @@ fn process_rewrite(ruleset: Symbol, lhs: &Expr, rhs: &Expr, subsume: bool) -> Op
         return Some(Command::Rewrite(
             ruleset,
             Rewrite {
-                span: DUMMY_SPAN.clone(),
+                span: span!(),
                 lhs,
                 rhs,
                 conditions: vec![],
@@ -74,39 +68,24 @@ fn process_rewrite(ruleset: Symbol, lhs: &Expr, rhs: &Expr, subsume: bool) -> Op
         ));
     }
 
-    let mut actions = vec![Action::Union(
-        DUMMY_SPAN.clone(),
-        Expr::var_no_span("|self|"),
-        rhs,
-    )];
+    let mut actions = vec![Action::Union(span!(), var!("|self|"), rhs)];
 
     if subsume {
         let Expr::Call(_, lhs_name, lhs_args) = lhs.clone() else {
             return None;
         };
-        actions.push(Action::Change(
-            DUMMY_SPAN.clone(),
-            Change::Subsume,
-            lhs_name,
-            lhs_args,
-        ));
+        actions.push(Action::Change(span!(), Change::Subsume, lhs_name, lhs_args));
     }
 
     Some(Command::Rule {
         name: "".into(),
         ruleset: ruleset,
         rule: Rule {
-            span: DUMMY_SPAN.clone(),
+            span: span!(),
             head: GenericActions(actions),
             body: vec![
-                GenericFact::Eq(DUMMY_SPAN.clone(), vec![Expr::var_no_span("|self|"), lhs]),
-                GenericFact::Eq(
-                    DUMMY_SPAN.clone(),
-                    vec![
-                        Expr::var_no_span("|w|"),
-                        Expr::call_no_span("Width", vec![Expr::var_no_span("|self|")]),
-                    ],
-                ),
+                GenericFact::Eq(span!(), var!("|self|"), lhs),
+                GenericFact::Eq(span!(), var!("|w|"), call!("Width", [var!("|self|")])),
             ],
         },
     })

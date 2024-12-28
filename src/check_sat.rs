@@ -1,11 +1,11 @@
 use crate::{log::Log, Context};
-use egglog::ast::Expr;
+use egglog::{ast::Expr, call};
 use lazy_static::lazy_static;
 
 lazy_static! {
     static ref CHECK_SAT: Log =
         Log::from_egglog_source(include_str!("check_sat.egg"), Some("check_sat.egg")).unwrap();
-    static ref PROVEN_UNSAT: Expr = Expr::call_no_span("ProvenUnsat", []);
+    static ref PROVEN_UNSAT: Expr = call!("ProvenUnsat", []);
 }
 
 impl Context {

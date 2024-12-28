@@ -1,6 +1,9 @@
 use crate::smt2lib::sort::Sort;
 use anyhow::{bail, Context as _};
-use egglog::ast::{Expr, Symbol};
+use egglog::{
+    ast::{Expr, Symbol},
+    call, lit, var,
+};
 use std::{fmt::Display, num::NonZeroU32};
 
 use super::term::Lowered;
@@ -358,7 +361,7 @@ pub(crate) fn check_application(
 fn left_associative_fold(args: Vec<Lowered>, sym: Symbol) -> Expr {
     args.into_iter()
         .map(|arg| arg.expr)
-        .reduce(|lhs, rhs| Expr::call_no_span(sym, [lhs, rhs]))
+        .reduce(|lhs, rhs| call!(sym, [lhs, rhs]))
         .unwrap()
 }
 
@@ -366,16 +369,14 @@ fn right_associative_fold(args: Vec<Lowered>, sym: Symbol) -> Expr {
     args.into_iter()
         .rev()
         .map(|arg| arg.expr)
-        .reduce(|rhs, lhs| Expr::call_no_span(sym, [lhs, rhs]))
+        .reduce(|rhs, lhs| call!(sym, [lhs, rhs]))
         .unwrap()
 }
 
 fn vararg_list(args: Vec<Lowered>) -> Expr {
-    args.into_iter()
-        .rev()
-        .fold(Expr::call_no_span("VSNil", []), |acc, arg| {
-            Expr::call_no_span("VSCons", [arg.expr, acc])
-        })
+    args.into_iter().rev().fold(call!("VSNil", []), |acc, arg| {
+        call!("VSCons", [arg.expr, acc])
+    })
 }
 
 fn egglog_for_indices<'a>(
@@ -384,10 +385,10 @@ fn egglog_for_indices<'a>(
     indices.iter().map(|index| match index {
         smt2parser::visitors::Index::Numeral(big_uint) => {
             let smol_int: u32 = big_uint.try_into().unwrap();
-            Expr::lit_no_span(smol_int as i64)
+            lit!(smol_int as i64)
         }
         smt2parser::visitors::Index::Symbol(sym) => {
-            Expr::lit_no_span(egglog::ast::Symbol::new(&sym.0))
+            lit!(egglog::ast::Symbol::new(&sym.0))
         }
     })
 }
@@ -398,16 +399,16 @@ pub(crate) fn egglog_for_application(
     indices: &[smt2parser::visitors::Index],
 ) -> Expr {
     match spec {
-        FunctionLoweringSpec::Direct { symbol } => Expr::call_no_span(
+        FunctionLoweringSpec::Direct { symbol } => call!(
             *symbol,
-            egglog_for_indices(indices).chain(args.into_iter().map(|arg| arg.expr)),
+            egglog_for_indices(indices).chain(args.into_iter().map(|arg| arg.expr))
         ),
         FunctionLoweringSpec::LeftAssociative { symbol } => left_associative_fold(args, *symbol),
         FunctionLoweringSpec::RightAssociative { symbol } => right_associative_fold(args, *symbol),
-        FunctionLoweringSpec::Variadic { symbol } => Expr::call_no_span(
+        FunctionLoweringSpec::Variadic { symbol } => call!(
             *symbol,
-            egglog_for_indices(indices).chain(std::iter::once(vararg_list(args))),
+            egglog_for_indices(indices).chain(std::iter::once(vararg_list(args)))
         ),
-        FunctionLoweringSpec::Variable { symbol } => Expr::var_no_span(*symbol),
+        FunctionLoweringSpec::Variable { symbol } => var!(*symbol),
     }
 }

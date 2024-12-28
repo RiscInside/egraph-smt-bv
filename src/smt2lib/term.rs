@@ -1,6 +1,7 @@
 use self::fun::egglog_for_application;
 use crate::smt2lib::{fun, sort::Sort, Context};
 use anyhow::{bail, Ok};
+use egglog::var;
 use im_rc::HashMap;
 use smt2parser::{concrete, visitors::Index};
 
@@ -144,7 +145,7 @@ impl LocalContext<'_> {
         let fresh_var_index = self.fresh_vars_count;
         self.fresh_vars_count += 1;
         let egglog_name = egglog::ast::Symbol::new(format!("|{fresh_var_index}|"));
-        (egglog_name, egglog::ast::Expr::var_no_span(egglog_name))
+        (egglog_name, var!(egglog_name))
     }
 
     pub(crate) fn lower_let(

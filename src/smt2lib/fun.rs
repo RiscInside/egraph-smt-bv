@@ -158,7 +158,7 @@ fn expect_three_args<'a>(
     name: &str,
     args: &'a [Lowered],
 ) -> anyhow::Result<(&'a Lowered, &'a Lowered, &'a Lowered)> {
-    if args.len() != 2 {
+    if args.len() != 3 {
         bail!(
             "Expected three arguments for {name} (got {} arguments instead)",
             args.len()

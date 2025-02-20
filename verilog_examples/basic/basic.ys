@@ -1,0 +1,6 @@
+read_verilog verilog_examples/basic/optimized.v
+read_verilog verilog_examples/basic/unoptimized.v
+hierarchy
+memory
+proc
+write_smt2 -stdt verilog_examples/basic/basic.smt2

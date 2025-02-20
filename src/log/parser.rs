@@ -1,5 +1,10 @@
 use crate::log::Log;
 
+fn logbook_egglog_parser() -> egglog::ast::Parser {
+    // Any macro definitions would go in here
+    egglog::ast::Parser::default()
+}
+
 impl Log {
     pub(crate) fn from_egglog_source(source: &str, filename: Option<&str>) -> anyhow::Result<Log> {
         let mut log = Log::new();
@@ -24,7 +29,8 @@ impl Log {
             *final_newline = false;
         }
 
-        log.parse_egglog(filename)?;
+        let mut parser = logbook_egglog_parser();
+        log.parse_egglog(filename, &mut parser)?;
         Ok(log)
     }
 }

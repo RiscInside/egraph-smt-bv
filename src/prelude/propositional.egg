@@ -6,7 +6,8 @@
 
 ; Similar rule exists for bitvector constants.
 
-(rule ((= (BvConst w1 v1) (BvConst w2 v2)) (!= v1 v2)) ((set (ProvenUnsat) true)) :ruleset safe)
+(rule ((= (BvSmall w1 v1) (BvSmall w2 v2)) (!= v1 v2)) ((set (ProvenUnsat) true)) :ruleset safe)
+(rule ((= (BvLarge w1 v1) (BvLarge w2 v2)) (!= v1 v2)) ((set (ProvenUnsat) true)) :ruleset safe)
 
 ; ### If-then-else constant folding
 

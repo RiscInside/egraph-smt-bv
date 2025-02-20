@@ -53,7 +53,14 @@ impl LocalContext<'_> {
             .checked_mul(bits_per_digit)
             .ok_or_else(|| anyhow!("Too many digits"))?;
 
-        let expr = call!("BvConst", [lit!(bits.get() as i64), value]);
+        let expr = call!(
+            if bits.get() <= 64 {
+                "BvSmall"
+            } else {
+                "BvLarge"
+            },
+            [lit!(bits.get() as i64), value]
+        );
 
         Ok(Lowered {
             expr,
@@ -86,7 +93,14 @@ impl LocalContext<'_> {
         .context("Bit-vector literals can't be empty")?;
 
         Ok(Some(Lowered {
-            expr: call!("BvConst", [lit!(width.get() as i64), value]),
+            expr: call!(
+                if width.get() <= 64 {
+                    "BvSmall"
+                } else {
+                    "BvLarge"
+                },
+                [lit!(width.get() as i64), value]
+            ),
             sort: Sort::BitVec(width),
         }))
     }

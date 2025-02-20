@@ -80,15 +80,15 @@ impl Log {
         }
     }
 
-    pub(crate) fn parse_egglog(&mut self, filename: Option<&str>) -> anyhow::Result<()> {
-        let parser = egglog::ast::Parser::default();
+    pub(crate) fn parse_egglog(
+        &mut self,
+        filename: Option<&str>,
+        parser: &mut egglog::ast::Parser,
+    ) -> anyhow::Result<()> {
         for item in self.items.iter_mut() {
             if let LogItem::Egglog { code, commands } = &mut item.0 {
-                *commands = egglog::ast::parse_program(
-                    filename.map(|filename| filename.to_owned()),
-                    code,
-                    &parser,
-                )?;
+                *commands = parser
+                    .get_program_from_string(filename.map(|filename| filename.to_owned()), code)?;
             }
         }
         Ok(())

@@ -1,3 +1,4 @@
+pub(crate) mod bv;
 pub(crate) mod check_sat;
 pub(crate) mod commands;
 pub(crate) mod context;

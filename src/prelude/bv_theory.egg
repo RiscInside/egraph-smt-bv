@@ -54,11 +54,10 @@
 
 ; ### Bitvector constants
 
-; Bitvector constant are stored as egglog big integers. This allows us to
-; support bitvectors of any (reasonable) width. We store width together with
-; the bitvector value.
+; We use two different types for small and large bitvectors
 
-(constructor BvConst (i64 BigInt) V)
+(constructor BvSmall (i64 SmallBitVec) V)
+(constructor BvLarge (i64 BigInt) V)
 
 ; We also define `(BvAll b w)` to represent all-zero/all-one bitvectors
 ; of width `w` (`b = false` for all-zeros and `b = true` for all-ones).
@@ -110,9 +109,30 @@
 (rule ((= e (BvLShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
 (rule ((= e (BvAShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
 
-(rule ((= e (BvConst w v))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvSmall w v))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvLarge w v))) ((set (Width e) w)) :ruleset safe)
 (rule ((= e (BvAll b w))) ((set (Width e) w)) :ruleset safe)
 
 (rule ((= e (BvShlC e1 c)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
 (rule ((= e (BvLShrC e1 c)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
 (rule ((= e (BvAShrC e1 c)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+
+; #### Constant folding rules for bitvectors
+
+(rewrite (BvNot (BvSmall w a)) (BvSmall w (not-sbv a w)) :subsume :ruleset safe)
+(rewrite (BvNeg (BvSmall w a)) (BvSmall w (neg a w)) :subsume :ruleset safe)
+
+(rewrite (BvAnd (BvSmall w a) (BvSmall _w b)) (BvSmall w (& a b w)) :subsume :ruleset safe)
+(rewrite (BvOr (BvSmall w a) (BvSmall _w b)) (BvSmall w (| a b w)) :subsume :ruleset safe)
+(rewrite (BvXor (BvSmall w a) (BvSmall _w b)) (BvSmall w (^ a b w)) :subsume :ruleset safe)
+
+(rewrite (BvAdd (BvSmall w a) (BvSmall _w b)) (BvSmall w (+ a b w)) :subsume :ruleset safe)
+(rewrite (BvSub (BvSmall w a) (BvSmall _w b)) (BvSmall w (- a b w)) :subsume :ruleset safe)
+(rewrite (BvMul (BvSmall w a) (BvSmall _w b)) (BvSmall w (* a b w)) :subsume :ruleset safe)
+(rewrite (BvUDiv (BvSmall w a) (BvSmall _w b)) (BvSmall w (/u a b w)) :subsume :ruleset safe)
+
+(rewrite (BvShl (BvSmall w a) (BvSmall _w b)) (BvSmall w (<< a b w)) :subsume :ruleset safe)
+(rewrite (BvLShr (BvSmall w a) (BvSmall _w b)) (BvSmall w (>> a b w)) :subsume :ruleset safe)
+
+(rewrite (Concat (BvSmall w1 a) (BvSmall w2 b)) (BvSmall (+ w1 w2) (concat a b w2)) :subsume :ruleset safe)
+(rewrite (Extract i j (BvSmall w a)) (BvSmall (- (+ i 1) j) (extract a i j)) :subsume :ruleset safe)

@@ -5,6 +5,7 @@
 //// - All SMT2LIB functions that are in scope, along with their types
 
 use crate::{
+    bv::register_bitvec_sorts,
     log::{
         eggloglog, markdown,
         output::{LogSink, LogStream},
@@ -30,8 +31,10 @@ pub(crate) struct Context {
 
 impl Context {
     pub(crate) fn new() -> Context {
+        let mut egraph = EGraph::default();
+        register_bitvec_sorts(&mut egraph);
         return Context {
-            egraph: EGraph::default(),
+            egraph,
             sinks: LogSink::new(),
             smt2contexts: vec![smt2lib::Context::new()],
             asserts_so_far: 0,

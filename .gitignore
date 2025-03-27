@@ -2,3 +2,5 @@
 /gitignored
 *.out.md
 *.out.egg
+*.out.json
+*.out.svg

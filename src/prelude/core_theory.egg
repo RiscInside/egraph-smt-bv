@@ -43,15 +43,15 @@
 ; Binary equality operator `Equal` (and `AllEqual`/`AllDistinct` desugaring)
 
 (constructor Equal (V V) V)
-(rewrite (AllEqual (VSCons v (VSNil))) tt :subsume :ruleset desugar)
+(rewrite (AllEqual (VSCons v (VSNil))) tt :ruleset desugar)
 (rewrite (AllEqual (VSCons v1 (VSCons v2 vs)))
-         (And (Equal v1 v2) (AllEqual (VSCons v2 vs))) :subsume :ruleset desugar)
+         (And (Equal v1 v2) (AllEqual (VSCons v2 vs))) :ruleset desugar)
 
 (constructor AllDistinctFrom (V VS) V :unextractable)
 
-(rewrite (AllDistinct (VSNil)) tt :subsume :ruleset desugar)
+(rewrite (AllDistinct (VSNil)) tt :ruleset desugar)
 (rewrite (AllDistinct (VSCons v vs))
-         (And (AllDistinctFrom v vs) (AllDistinct vs)) :subsume :ruleset desugar)
-(rewrite (AllDistinctFrom v (VSNil)) tt :subsume :ruleset desugar)
+         (And (AllDistinctFrom v vs) (AllDistinct vs)) :ruleset desugar)
+(rewrite (AllDistinctFrom v (VSNil)) tt :ruleset desugar)
 (rewrite (AllDistinctFrom v (VSCons v1 vs))
-          (And (Not (Equal v v1)) (AllDistinctFrom v vs)) :subsume :ruleset desugar)
+          (And (Not (Equal v v1)) (AllDistinctFrom v vs)) :ruleset desugar)

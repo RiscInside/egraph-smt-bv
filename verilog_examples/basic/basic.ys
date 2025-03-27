@@ -3,4 +3,5 @@ read_verilog verilog_examples/basic/unoptimized.v
 hierarchy
 memory
 proc
-write_smt2 -stdt verilog_examples/basic/basic.smt2
+miter -equiv optimized unoptimized miter
+write_smt2 -stbv verilog_examples/basic/basic.smt2

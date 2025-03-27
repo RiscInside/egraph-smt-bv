@@ -1,0 +1,5 @@
+read_verilog verilog_examples/even_more_basic/optimized.v
+read_verilog verilog_examples/even_more_basic/unoptimized.v
+hierarchy
+miter -equiv optimized unoptimized miter
+write_smt2 -stbv verilog_examples/even_more_basic/even_more_basic.smt2

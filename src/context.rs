@@ -40,7 +40,7 @@ impl Context {
             sinks: LogSink::new(),
             smt2contexts: vec![smt2lib::Context::new()],
             asserts_so_far: 0,
-            keep_functions: false
+            keep_functions: false,
         };
     }
 

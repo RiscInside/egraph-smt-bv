@@ -86,6 +86,6 @@ fn main() -> anyhow::Result<()> {
     if let Some(svg_egraph_path) = args.svg_egraph_path {
         serialized.to_svg_file(svg_egraph_path)?;
     }
- 
+
     Ok(())
 }

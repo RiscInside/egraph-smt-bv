@@ -4,6 +4,8 @@ use anyhow::{bail, Context as _};
 use smt2parser::concrete;
 use std::fmt::Display;
 
+use crate::smt2lib::Context;
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Sort {
     Bool,
@@ -19,13 +21,15 @@ impl Display for Sort {
     }
 }
 
-impl Sort {
-    /// Parses sort from a concrete syntax tree
-    pub(crate) fn from_concrete(concrete: &concrete::Sort) -> anyhow::Result<Sort> {
+impl Context {
+    pub(crate) fn parse_sort(&self, concrete: &concrete::Sort) -> anyhow::Result<Sort> {
         match concrete {
             concrete::Sort::Simple {
                 identifier: concrete::Identifier::Simple { symbol },
-            } if symbol.0 == "Bool" => Ok(Sort::Bool),
+            } => match self.sorts.get(&symbol.0) {
+                Some(ty) => Ok(*ty),
+                None => bail!("Unknown sort {}", symbol.0),
+            },
             concrete::Sort::Simple {
                 identifier: concrete::Identifier::Indexed { symbol, indices },
             } if symbol.0 == "BitVec" => {

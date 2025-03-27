@@ -62,25 +62,26 @@ impl Drop for LocalContext<'_> {
     }
 }
 
-fn parse_qual_id<'a>(
-    identifier: &'a concrete::QualIdentifier,
-) -> anyhow::Result<(&'a str, &'a [Index], Option<Sort>)> {
-    let (name, indices): (_, &[Index]) = match identifier {
-        concrete::QualIdentifier::Simple { identifier }
-        | concrete::QualIdentifier::Sorted { identifier, .. } => match identifier {
-            concrete::Identifier::Simple { symbol } => (&symbol.0, &[]),
-            concrete::Identifier::Indexed { symbol, indices } => (&symbol.0, indices),
-        },
-    };
-    let expected_sort = match identifier {
-        concrete::QualIdentifier::Simple { .. } => None,
-        concrete::QualIdentifier::Sorted { sort, .. } => Some(Sort::from_concrete(sort)?),
-    };
-
-    Ok((name, indices, expected_sort))
-}
-
 impl LocalContext<'_> {
+    pub(crate) fn parse_qual_id<'a>(
+        &self,
+        identifier: &'a concrete::QualIdentifier,
+    ) -> anyhow::Result<(&'a str, &'a [Index], Option<Sort>)> {
+        let (name, indices): (_, &[Index]) = match identifier {
+            concrete::QualIdentifier::Simple { identifier }
+            | concrete::QualIdentifier::Sorted { identifier, .. } => match identifier {
+                concrete::Identifier::Simple { symbol } => (&symbol.0, &[]),
+                concrete::Identifier::Indexed { symbol, indices } => (&symbol.0, indices),
+            },
+        };
+        let expected_sort = match identifier {
+            concrete::QualIdentifier::Simple { .. } => None,
+            concrete::QualIdentifier::Sorted { sort, .. } => Some(self.global.parse_sort(sort)?),
+        };
+
+        Ok((name, indices, expected_sort))
+    }
+
     pub(crate) fn lower_app(
         &mut self,
         name: &str,
@@ -117,7 +118,7 @@ impl LocalContext<'_> {
         identifier: &concrete::QualIdentifier,
         arguments: &[concrete::Term],
     ) -> anyhow::Result<Lowered> {
-        let (name, indices, expected_sort) = parse_qual_id(identifier)?;
+        let (name, indices, expected_sort) = self.parse_qual_id(identifier)?;
 
         let lowered = match self.bindings.get(name) {
             Some(result) => {

@@ -10,6 +10,8 @@ pub(crate) mod term;
 
 #[derive(Clone)]
 pub(crate) struct Context {
+    /// Sorts available in scope
+    pub(crate) sorts: HashMap<String, sort::Sort>,
     /// Functions available in-scope
     pub(crate) functions: HashMap<String, fun::FunctionDef>,
     /// How many fresh variables we generated in global context

@@ -56,6 +56,10 @@ impl Context {
         ))])
     }
 
+    pub(crate) fn smt2lib_context_mut(&mut self) -> &mut crate::smt2lib::Context {
+        self.smt2contexts.last_mut().unwrap()
+    }
+
     pub(crate) fn assert_term(&mut self, term: &concrete::Term) -> anyhow::Result<()> {
         self.asserts_so_far += 1;
 
@@ -139,9 +143,9 @@ impl Context {
     ) -> anyhow::Result<()> {
         let params = params
             .iter()
-            .map(Sort::from_concrete)
+            .map(|concrete| self.smt2lib_context_mut().parse_sort(concrete))
             .collect::<Result<Vec<_>, _>>()?;
-        let sort = Sort::from_concrete(sort)?;
+        let sort = self.smt2lib_context_mut().parse_sort(sort)?;
 
         let mut commands = vec![fun_decl_egglog_command(name, params.len())];
 
@@ -181,16 +185,17 @@ impl Context {
         sig: &concrete::FunctionDec,
         term: &concrete::Term,
     ) -> anyhow::Result<()> {
+        let keep_functions = self.keep_functions;
         let mut param_sorts = vec![];
-        let result_sort = Sort::from_concrete(&sig.result)?;
+        let smt2context = self.smt2lib_context_mut();
+        let result_sort = smt2context.parse_sort(&sig.result)?;
 
-        let smt2context = self.smt2contexts.last_mut().unwrap();
         let commands = {
             let mut local_ctx = LocalContext::new_local(smt2context);
             let mut params_exprs = vec![];
 
             for (param_name, param_sort) in &sig.parameters {
-                let param_sort = Sort::from_concrete(&param_sort)?;
+                let param_sort = local_ctx.global.parse_sort(&param_sort)?;
                 param_sorts.push(param_sort);
 
                 let im_rc::hashmap::Entry::Vacant(vacant_entry) =
@@ -230,7 +235,11 @@ impl Context {
             actions.push(Action::Union(span!(), eclass_expr.clone(), term.expr));
             actions.push(Action::Change(
                 span!(),
-                if self.keep_functions { Change::Subsume } else { Change::Delete },
+                if keep_functions {
+                    Change::Subsume
+                } else {
+                    Change::Delete
+                },
                 Symbol::new(sig.name.0.to_owned()),
                 params_exprs.clone(),
             ));
@@ -262,6 +271,26 @@ impl Context {
         todo!()
     }
 
+    pub(crate) fn define_sort(
+        &mut self,
+        symbol: &concrete::Symbol,
+        parameters: &[concrete::Symbol],
+        sort: &concrete::Sort,
+    ) -> anyhow::Result<()> {
+        let context = self.smt2lib_context_mut();
+        if parameters.len() != 0 {
+            bail!("Parametric type synonyms aren't supported")
+        }
+        let rhs_sort = context.parse_sort(sort)?;
+        match context.sorts.entry(symbol.0.clone()) {
+            im_rc::hashmap::Entry::Occupied(..) => bail!("Sort {} already defined", symbol.0),
+            im_rc::hashmap::Entry::Vacant(vacant_entry) => {
+                vacant_entry.insert(rhs_sort);
+                Ok(())
+            }
+        }
+    }
+
     pub(crate) fn handle_smt2lib_command(
         &mut self,
         command: &concrete::Command,
@@ -285,7 +314,11 @@ impl Context {
             DefineFunRec { .. } | DefineFunsRec { .. } => {
                 bail!("Recursive functions aren't supported")
             }
-            DefineSort { .. } => bail!("Sort synonyms aren't supported"),
+            DefineSort {
+                symbol,
+                parameters,
+                sort,
+            } => self.define_sort(symbol, parameters, sort),
             Echo { message } => {
                 println!("\"{message}\"");
                 Ok(())

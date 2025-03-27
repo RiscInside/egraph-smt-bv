@@ -69,6 +69,7 @@ impl Context {
         };
 
         Context {
+            sorts: hashmap! { "Bool".to_owned() => Sort::Bool },
             fresh_vars_count: 0,
             functions,
         }

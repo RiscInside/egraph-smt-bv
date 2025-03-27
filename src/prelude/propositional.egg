@@ -19,3 +19,6 @@
 (rule ((= tt (Equal e1 e2))) ((union e1 e2)) :ruleset safe)
 (rewrite (Equal e e) tt :ruleset safe)
 (rewrite (Equal tt ff) ff :ruleset safe)
+
+; We can also get rid of redundant equalities (to make e-graph a bit more readable4)
+(rule ((= _ (Equal v v))) ((delete (Equal v v))) :ruleset safe)

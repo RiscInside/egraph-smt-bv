@@ -338,7 +338,7 @@ impl Context {
             ResetAssertions => bail!("reset-assertions isn't supported"),
             SetInfo { .. } => bail!("set-info isn't supported"),
             SetLogic { symbol } => {
-                if symbol.0 != "QF_BV" {
+                if symbol.0 != "QF_BV" && symbol.0 != "QF_UFBV" {
                     bail!("Unsupported logic {}", symbol.0);
                 }
                 Ok(())

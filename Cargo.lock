@@ -370,6 +370,7 @@ dependencies = [
  "anyhow",
  "clap 4.5.20",
  "egglog",
+ "egraph-serialize",
  "im-rc",
  "itertools 0.13.0",
  "lazy_static",

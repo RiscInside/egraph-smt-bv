@@ -10,6 +10,7 @@ pub(crate) mod statistics;
 use anyhow::bail;
 use clap::Parser;
 use context::Context;
+use egglog::SerializeConfig;
 
 #[derive(Parser)]
 struct Args {
@@ -18,6 +19,13 @@ struct Args {
     egglog_output: Vec<std::path::PathBuf>,
     #[arg(short, long)]
     markdown_output: Vec<std::path::PathBuf>,
+    #[arg(short, long)]
+    json_egraph_path: Option<std::path::PathBuf>,
+    #[arg(short, long)]
+    dot_egraph_path: Option<std::path::PathBuf>,
+    #[arg(short, long)]
+    svg_egraph_path: Option<std::path::PathBuf>,
+
 }
 
 fn main() -> anyhow::Result<()> {
@@ -60,5 +68,19 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
+    let serialized = ctx.egraph.serialize(SerializeConfig::default());
+
+    if let Some(json_egraph_path) = args.json_egraph_path {
+        serialized.to_json_file(json_egraph_path)?;
+    }
+
+    if let Some(dot_egraph_path) = args.dot_egraph_path {
+        serialized.to_dot_file(dot_egraph_path)?;
+    }
+
+    if let Some(svg_egraph_path) = args.svg_egraph_path {
+        serialized.to_svg_file(svg_egraph_path)?;
+    }
+ 
     Ok(())
 }

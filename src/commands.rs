@@ -230,7 +230,7 @@ impl Context {
             actions.push(Action::Union(span!(), eclass_expr.clone(), term.expr));
             actions.push(Action::Change(
                 span!(),
-                Change::Delete,
+                if self.keep_functions { Change::Subsume } else { Change::Delete },
                 Symbol::new(sig.name.0.to_owned()),
                 params_exprs.clone(),
             ));

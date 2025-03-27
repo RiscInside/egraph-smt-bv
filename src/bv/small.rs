@@ -163,10 +163,10 @@ impl FromSort for SmallBitVec {
 impl IntoSort for SmallBitVec {
     type Sort = SmallBitVecSort;
 
-    fn store(self, sort: &Self::Sort) -> Option<Value> {
+    fn store(self, _sort: &Self::Sort) -> Option<Value> {
         Some(Value {
             #[cfg(debug_assertions)]
-            tag: sort.name(),
+            tag: _sort.name(),
             bits: self.0,
         })
     }

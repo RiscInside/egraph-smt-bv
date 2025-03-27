@@ -25,12 +25,17 @@ struct Args {
     dot_egraph_path: Option<std::path::PathBuf>,
     #[arg(short, long)]
     svg_egraph_path: Option<std::path::PathBuf>,
-
+    #[arg(long)]
+    keep_functions: bool,
 }
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let mut ctx: Context = context::Context::new();
+
+    if args.keep_functions {
+        ctx.keep_functions();
+    }
 
     // Add egglog and markdown sinks
     for out in args.egglog_output.iter() {

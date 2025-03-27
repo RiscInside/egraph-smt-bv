@@ -27,6 +27,8 @@ pub(crate) struct Context {
     pub(crate) smt2contexts: Vec<smt2lib::Context>,
     /// Assertions count
     pub(crate) asserts_so_far: usize,
+    /// True if functions should be kept in the e-graph
+    pub(crate) keep_functions: bool,
 }
 
 impl Context {
@@ -38,7 +40,12 @@ impl Context {
             sinks: LogSink::new(),
             smt2contexts: vec![smt2lib::Context::new()],
             asserts_so_far: 0,
+            keep_functions: false
         };
+    }
+
+    pub(crate) fn keep_functions(&mut self) {
+        self.keep_functions = true;
     }
 
     pub(crate) fn add_egglog_sink(&mut self, path: &std::path::Path) -> anyhow::Result<()> {

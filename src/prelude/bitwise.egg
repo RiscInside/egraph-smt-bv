@@ -34,11 +34,11 @@
 ; One rule implicit in AIGs is `Not` folding. These rules can safely be
 ; subsuming.
 
-(rewrite (Not (Not a)) a :subsume :ruleset safe)
+(rewrite (Not (Not a)) a :replace :ruleset safe)
 
 ; We can propogate constants upwards through `Not`.
 
-(rewrite (Not (B b)) (B (not b)) :subsume :ruleset safe)
+(rewrite (Not (B b)) (B (not b)) :replace :ruleset safe)
 (rule ((= (Not e) (B b))) ((subsume (Not e)) (union e (B (not b)))) :ruleset safe)
 (rule ((= (BvNot e) (BvAll b w)) (= w (Width e))) ((subsume (BvNot e)) (union e (BvAll (not b) w))) :ruleset safe)
 
@@ -60,34 +60,34 @@
 ; Note that we already have commutativity, so we don't have to invert those
 ; patterns.
 
-(rewrite (And a tt) a :subsume :ruleset safe)
-(rewrite (And a ff) ff :subsume :ruleset safe)
-(rewrite (And a a) a :subsume :ruleset safe)
-(rewrite (And a (Not a)) ff :subsume :ruleset safe)
+(rewrite (And a tt) a :replace :ruleset safe)
+(rewrite (And a ff) ff :replace :ruleset safe)
+(rewrite (And a a) a :replace :ruleset safe)
+(rewrite (And a (Not a)) ff :replace :ruleset safe)
 
 ; #### O2 rules
 
 ; Contradiction
-(rewrite (And (And (Not a) b) a) ff :subsume :ruleset safe)
-(rewrite (And (And a b) (Not a)) ff :subsume :ruleset safe)
-(rewrite (And (And a b) (And (Not a) c)) ff :subsume :ruleset safe)
+(rewrite (And (And (Not a) b) a) ff :replace :ruleset safe)
+(rewrite (And (And a b) (Not a)) ff :replace :ruleset safe)
+(rewrite (And (And a b) (And (Not a) c)) ff :replace :ruleset safe)
 ; Subsumption
-(rewrite (And (Not (And (Not a) b)) a) a :subsume :ruleset safe)
-(rewrite (And (Not (And a b)) (Not a)) (Not a) :subsume :ruleset safe)
-(rewrite (And (Not (And (Not a) b)) (And a c)) (And a c) :subsume :ruleset safe)
-(rewrite (And (Not (And a b)) (And (Not a) c)) (And (Not a) c) :subsume :ruleset safe)
+(rewrite (And (Not (And (Not a) b)) a) a :replace :ruleset safe)
+(rewrite (And (Not (And a b)) (Not a)) (Not a) :replace :ruleset safe)
+(rewrite (And (Not (And (Not a) b)) (And a c)) (And a c) :replace :ruleset safe)
+(rewrite (And (Not (And a b)) (And (Not a) c)) (And (Not a) c) :replace :ruleset safe)
 ; Idempotentence
-(rewrite (And (And a b) a) (And a b) :subsume :ruleset safe)
-(rewrite (And (Not (And a b)) (Not (And a (Not b)))) (Not a) :subsume :ruleset safe)
+(rewrite (And (And a b) a) (And a b) :replace :ruleset safe)
+(rewrite (And (Not (And a b)) (Not (And a (Not b)))) (Not a) :replace :ruleset safe)
 
 ; #### O3 rules
 
-(rewrite (And (Not (And a b)) b) (And (Not a) b) :subsume :ruleset safe)
-(rewrite (And (Not (And a b)) (And b c)) (And (Not a) (And b c)) :subsume :ruleset safe)
+(rewrite (And (Not (And a b)) b) (And (Not a) b) :replace :ruleset safe)
+(rewrite (And (Not (And a b)) (And b c)) (And (Not a) (And b c)) :replace :ruleset safe)
 
 ; #### O4 rules
 
-(rewrite (And (And a b) (And a d)) (And (And a b) d) :subsume :ruleset safe)
+(rewrite (And (And a b) (And a d)) (And (And a b) d) :replace :ruleset safe)
 
 ; ### Commutativity of `And`
 

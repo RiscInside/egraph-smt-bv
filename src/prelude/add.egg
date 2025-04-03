@@ -10,17 +10,17 @@
 
 ; ### Converting subtraction to negation
 
-(rewrite (BvSub a b) (BvAdd a (BvNeg b)) :subsume :ruleset safe)
+(rewrite (BvSub a b) (BvAdd a (BvNeg b)) :replace :ruleset safe)
 
 ; ### Double negation elimination
 
-(rewrite (BvNeg (BvNeg a)) a :subsume :ruleset safe)
+(rewrite (BvNeg (BvNeg a)) a :replace :ruleset safe)
 
 ; ### Unfolding one step of `Add`
 
 ; Pathological case when bitvector has width 1.
 
-(rewrite (BvAdd a b) (BvXor a b) :subsume :when ((= (Width a) 1)) :ruleset safe)
+(rewrite (BvAdd a b) (BvXor a b) :replace :when ((= (Width a) 1)) :ruleset safe)
 
 ; The rule below does one half-adder step. It is highly explosive.
 

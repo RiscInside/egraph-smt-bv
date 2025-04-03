@@ -11,8 +11,8 @@
 
 ; ### If-then-else constant folding
 
-(rewrite (ITE tt a b) a :subsume :ruleset safe)
-(rewrite (ITE ff a b) b :subsume :ruleset safe)
+(rewrite (ITE tt a b) a :replace :ruleset safe)
+(rewrite (ITE ff a b) b :replace :ruleset safe)
 
 ; ### Equality rules
 

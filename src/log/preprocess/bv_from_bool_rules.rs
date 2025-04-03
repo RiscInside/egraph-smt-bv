@@ -4,7 +4,7 @@
 use egglog::{
     ast::{
         call, lit, var, Action, Change, Command, Expr, GenericActions, GenericFact, Literal,
-        Rewrite, Rule, Symbol,
+        Rewrite, RewriteKind, Rule, Symbol,
     },
     span,
 };
@@ -50,7 +50,12 @@ fn bool_expr_to_bv(w_used: &mut bool, expr: &Expr) -> Option<Expr> {
     }
 }
 
-fn process_rewrite(ruleset: Symbol, lhs: &Expr, rhs: &Expr, subsume: bool) -> Option<Command> {
+fn process_rewrite(
+    ruleset: Symbol,
+    lhs: &Expr,
+    rhs: &Expr,
+    rewrite_kind: RewriteKind,
+) -> Option<Command> {
     let mut width_required = false;
     let lhs = bool_expr_to_bv(&mut width_required, lhs)?;
     let rhs = bool_expr_to_bv(&mut width_required, rhs)?;
@@ -64,17 +69,33 @@ fn process_rewrite(ruleset: Symbol, lhs: &Expr, rhs: &Expr, subsume: bool) -> Op
                 rhs,
                 conditions: vec![],
             },
-            subsume,
+            rewrite_kind,
         ));
     }
 
     let mut actions = vec![Action::Union(span!(), var!("|self|"), rhs)];
 
-    if subsume {
-        let Expr::Call(_, lhs_name, lhs_args) = lhs.clone() else {
-            return None;
-        };
-        actions.push(Action::Change(span!(), Change::Subsume, lhs_name, lhs_args));
+    match rewrite_kind {
+        RewriteKind::Plain => {}
+        RewriteKind::Subsuming => {
+            let Expr::Call(_, lhs_name, lhs_args) = lhs.clone() else {
+                return None;
+            };
+            actions.push(Action::Change(span!(), Change::Subsume, lhs_name, lhs_args));
+        }
+        RewriteKind::Replacing => {
+            let Expr::Call(_, lhs_name, lhs_args) = lhs.clone() else {
+                return None;
+            };
+            let Expr::Call(_, rhs_name, rhs_args) = lhs.clone() else {
+                return None;
+            };
+            if lhs_name == rhs_name {
+                actions.push(Action::Replace(span!(), lhs_name, lhs_args, vec![rhs_args]));
+            } else {
+                actions.push(Action::Change(span!(), Change::Subsume, lhs_name, lhs_args));
+            }
+        }
     }
 
     Some(Command::Rule {
@@ -116,10 +137,10 @@ fn process_command(source_command: &Command, generated: &mut Vec<Command>) {
                 ..
             },
         ) if conditions.is_empty() => {
-            if let Some(cmd) = process_rewrite(*ruleset, lhs, rhs, false) {
+            if let Some(cmd) = process_rewrite(*ruleset, lhs, rhs, RewriteKind::Plain) {
                 generated.push(cmd);
             }
-            if let Some(cmd) = process_rewrite(*ruleset, rhs, lhs, false) {
+            if let Some(cmd) = process_rewrite(*ruleset, rhs, lhs, RewriteKind::Plain) {
                 generated.push(cmd);
             }
         }

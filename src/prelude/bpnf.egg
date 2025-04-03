@@ -5,7 +5,7 @@
 
 ; ### Reassociating concats
 
-(rewrite (Concat a (Concat b c)) (Concat (Concat a b) c) :subsume :ruleset safe)
+(rewrite (Concat a (Concat b c)) (Concat (Concat a b) c) :replace :ruleset safe)
 
 ; ### Pushing extractions through concatenations
 

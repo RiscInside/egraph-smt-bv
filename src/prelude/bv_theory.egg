@@ -119,20 +119,20 @@
 
 ; #### Constant folding rules for bitvectors
 
-(rewrite (BvNot (BvSmall w a)) (BvSmall w (not-sbv a w)) :subsume :ruleset safe)
-(rewrite (BvNeg (BvSmall w a)) (BvSmall w (neg a w)) :subsume :ruleset safe)
+(rewrite (BvNot (BvSmall w a)) (BvSmall w (not-sbv a w)) :replace :ruleset safe)
+(rewrite (BvNeg (BvSmall w a)) (BvSmall w (neg a w)) :replace :ruleset safe)
 
-(rewrite (BvAnd (BvSmall w a) (BvSmall _w b)) (BvSmall w (& a b w)) :subsume :ruleset safe)
-(rewrite (BvOr (BvSmall w a) (BvSmall _w b)) (BvSmall w (| a b w)) :subsume :ruleset safe)
-(rewrite (BvXor (BvSmall w a) (BvSmall _w b)) (BvSmall w (^ a b w)) :subsume :ruleset safe)
+(rewrite (BvAnd (BvSmall w a) (BvSmall _w b)) (BvSmall w (& a b w)) :replace :ruleset safe)
+(rewrite (BvOr (BvSmall w a) (BvSmall _w b)) (BvSmall w (| a b w)) :replace :ruleset safe)
+(rewrite (BvXor (BvSmall w a) (BvSmall _w b)) (BvSmall w (^ a b w)) :replace :ruleset safe)
 
-(rewrite (BvAdd (BvSmall w a) (BvSmall _w b)) (BvSmall w (+ a b w)) :subsume :ruleset safe)
-(rewrite (BvSub (BvSmall w a) (BvSmall _w b)) (BvSmall w (- a b w)) :subsume :ruleset safe)
-(rewrite (BvMul (BvSmall w a) (BvSmall _w b)) (BvSmall w (* a b w)) :subsume :ruleset safe)
-(rewrite (BvUDiv (BvSmall w a) (BvSmall _w b)) (BvSmall w (/u a b w)) :subsume :ruleset safe)
+(rewrite (BvAdd (BvSmall w a) (BvSmall _w b)) (BvSmall w (+ a b w)) :replace :ruleset safe)
+(rewrite (BvSub (BvSmall w a) (BvSmall _w b)) (BvSmall w (- a b w)) :replace :ruleset safe)
+(rewrite (BvMul (BvSmall w a) (BvSmall _w b)) (BvSmall w (* a b w)) :replace :ruleset safe)
+(rewrite (BvUDiv (BvSmall w a) (BvSmall _w b)) (BvSmall w (/u a b w)) :replace :ruleset safe)
 
-(rewrite (BvShl (BvSmall w a) (BvSmall _w b)) (BvSmall w (<< a b w)) :subsume :ruleset safe)
-(rewrite (BvLShr (BvSmall w a) (BvSmall _w b)) (BvSmall w (>> a b w)) :subsume :ruleset safe)
+(rewrite (BvShl (BvSmall w a) (BvSmall _w b)) (BvSmall w (<< a b w)) :replace :ruleset safe)
+(rewrite (BvLShr (BvSmall w a) (BvSmall _w b)) (BvSmall w (>> a b w)) :replace :ruleset safe)
 
-(rewrite (Concat (BvSmall w1 a) (BvSmall w2 b)) (BvSmall (+ w1 w2) (concat a b w2)) :subsume :ruleset safe)
-(rewrite (Extract i j (BvSmall w a)) (BvSmall (- (+ i 1) j) (extract a i j)) :subsume :ruleset safe)
+(rewrite (Concat (BvSmall w1 a) (BvSmall w2 b)) (BvSmall (+ w1 w2) (concat a b w2)) :replace :ruleset safe)
+(rewrite (Extract i j (BvSmall w a)) (BvSmall (- (+ i 1) j) (extract a i j)) :replace :ruleset safe)

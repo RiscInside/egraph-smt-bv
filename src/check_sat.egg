@@ -1,6 +1,11 @@
 ; ### Running `check-sat`
 
 (run-schedule
-   (saturate (run safe :until (= true (ProvenUnsat))))
-   (run unsafe :until (= true (ProvenUnsat)))
-   (saturate (run safe :until (= true (ProvenUnsat)))))
+    ; Run safe ruleset before running `once` to let all the width facts propogate
+    (saturate (run safe :until (= true (ProvenUnsat))))
+    ; Run once ruleset
+    (run once)
+    ; Alternate between saturating safe ruleset and running some unsafe rules
+    (repeat 2
+        (saturate (run safe :until (= true (ProvenUnsat))))
+        (run unsafe :until (= true (ProvenUnsat)))))

@@ -46,6 +46,17 @@
 (constructor BvLShr (V V) V)
 (constructor BvAShr (V V) V)
 
+; ### Comparison predicates
+
+(constructor BvUle (V V) V)
+(constructor BvUlt (V V) V)
+(constructor BvUge (V V) V)
+(constructor BvUgt (V V) V)
+(constructor BvSle (V V) V)
+(constructor BvSlt (V V) V)
+(constructor BvSge (V V) V)
+(constructor BvSgt (V V) V)
+
 ; We also define custom constant shifts to simplify some rewrite rules.
 
 (constructor BvShlC (V i64) V)

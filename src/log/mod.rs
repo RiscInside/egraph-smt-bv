@@ -2,10 +2,11 @@
 //// modify in any way they wish
 
 pub(crate) mod eggloglog;
+pub(crate) mod macros;
 pub(crate) mod markdown;
 pub(crate) mod output;
 pub(crate) mod parser;
-pub(crate) mod preprocess;
+pub(crate) mod transforms;
 
 /// One log item.
 #[derive(Clone, Debug)]

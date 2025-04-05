@@ -48,6 +48,7 @@
          (And (Equal v1 v2) (AllEqual (VSCons v2 vs))) :ruleset desugar)
 
 (constructor AllDistinctFrom (V VS) V :unextractable)
+(rule ((AllDistinctFrom v vs)) ((delete (AllDistinctFrom v vs))) :ruleset post-desugar)
 
 (rewrite (AllDistinct (VSNil)) tt :ruleset desugar)
 (rewrite (AllDistinct (VSCons v vs))

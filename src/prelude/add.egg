@@ -24,4 +24,4 @@
 
 ; The rule below does one half-adder step. It is highly explosive.
 
-(rewrite (BvAdd a b) (BvAdd (BvXor a b) (BvShlC (BvAnd a b) 1)) :when ((> (Width a) 1)) :ruleset unsafe)
+(rewrite (BvAdd a b) (BvAdd (BvXor a b) (BvShlC (BvAnd a b) 1)) :when ((> (Width a) 1)) :ruleset once)

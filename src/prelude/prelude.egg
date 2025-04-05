@@ -35,6 +35,13 @@
 (rule ((= l (VSCons v vs))) ((delete (VSCons v vs))) :ruleset post-desugar)
 (rule ((= l (VSNil))) ((delete (VSNil))) :ruleset post-desugar)
 
+; ### One-off ruleset (`once`)
+
+; `once` ruleset runs once at the start of the check sat command. It is used for explosive
+; rules where it doesn't make sense to apply them multiple times.
+
+(ruleset once)
+
 ; ### Saturating ruleset (`safe`)
 
 ; `safe` ruleset contains rules that are always eventually saturating.

@@ -1,8 +1,8 @@
 ; <summary>bitwise.egg - simplifications of boolean/bitwise functions based on AND/NOT lowering (AIGs)</summary>
 
 ; We define a set of rules inspired by AIGs simplifications as seen in
-; literature. We are not directly using And/Not constructors directly here
-; instead of defining separate AIG ones.
+; literature. We are using And/Not constructors directly here instead of
+; defining separate AIG ones.
 
 ; ### Converting other boolean operators to and/not combinations and back
 
@@ -12,17 +12,15 @@
 ; as aig simplification rules won't get any performance boost from subsuming
 ; e-nodes from other tables.
 
-(birewrite (Or e1 e2) (Not (And (Not e1) (Not e2))) :ruleset safe)
-(rewrite (Xor e1 e2)
-         (Not (And (Not (And e1 (Not e2))) (Not (And (Not e1) e2))))
-         :ruleset safe)
+(bw-birewrite (or e1 e2) (not (and (not e1) (not e2))))
+(bw-rewrite (xor e1 e2)
+         (not (and (not (and e1 (not e2))) (not (and (not e1) e2)))))
+
+; `Implies` only exists for booleans.
+
 (rewrite (Implies e1 e2) (Not (And e1 (Not e2))) :ruleset safe)
 
-; ### Converting bitwise operators on bitvectors.
-
-; We can have similar rule on bitvectors (which are auto-derived). There are
-; a few other operators for bitvectors however for which there are no boolean
-; equivalents.
+; `BvNand`, `BvNor`, and `BvXNor` only exist for bitvectors
 
 (rewrite (BvNand e1 e2) (Not (And e1 e2)) :ruleset safe)
 (rewrite (BvNor e1 e2) (BvAnd (BvNot e1) (BvNot e2)) :ruleset safe)
@@ -31,14 +29,13 @@
 
 ; ### `Not` folding
 
-; One rule implicit in AIGs is `Not` folding. These rules can safely be
-; subsuming.
+; One rule implicit in AIGs is `Not` folding. We can define this rule to be replacing
 
-(rewrite (Not (Not a)) a :replace :ruleset safe)
+(bw-replace (not (not a)) a)
 
-; We can propogate constants upwards through `Not`.
+; We can propogate constants in both directions through `Not`
 
-(rewrite (Not (B b)) (B (not b)) :replace :ruleset safe)
+(bw-replace (not (lift b)) (lift (not b)))
 (rule ((= (Not e) (B b))) ((subsume (Not e)) (union e (B (not b)))) :ruleset safe)
 (rule ((= (BvNot e) (BvAll b w)) (= w (Width e))) ((subsume (BvNot e)) (union e (BvAll (not b) w))) :ruleset safe)
 
@@ -60,47 +57,47 @@
 ; Note that we already have commutativity, so we don't have to invert those
 ; patterns.
 
-(rewrite (And a tt) a :replace :ruleset safe)
-(rewrite (And a ff) ff :replace :ruleset safe)
-(rewrite (And a a) a :replace :ruleset safe)
-(rewrite (And a (Not a)) ff :replace :ruleset safe)
+(bw-replace (and a true) a)
+(bw-replace (and a false) false)
+(bw-replace (and a a) a)
+(bw-replace (and a (not a)) false)
 
 ; #### O2 rules
 
 ; Contradiction
-(rewrite (And (And (Not a) b) a) ff :replace :ruleset safe)
-(rewrite (And (And a b) (Not a)) ff :replace :ruleset safe)
-(rewrite (And (And a b) (And (Not a) c)) ff :replace :ruleset safe)
+(bw-replace (and (and (not a) b) a) false)
+(bw-replace (and (and a b) (not a)) false)
+(bw-replace (and (and a b) (and (not a) c)) false)
 ; Subsumption
-(rewrite (And (Not (And (Not a) b)) a) a :replace :ruleset safe)
-(rewrite (And (Not (And a b)) (Not a)) (Not a) :replace :ruleset safe)
-(rewrite (And (Not (And (Not a) b)) (And a c)) (And a c) :replace :ruleset safe)
-(rewrite (And (Not (And a b)) (And (Not a) c)) (And (Not a) c) :replace :ruleset safe)
+(bw-replace (and (not (and (not a) b)) a) a)
+(bw-replace (and (not (and a b)) (not a)) (not a))
+(bw-replace (and (not (and (not a) b)) (and a c)) (and a c))
+(bw-replace (and (not (and a b)) (and (not a) c)) (and (not a) c))
 ; Idempotentence
-(rewrite (And (And a b) a) (And a b) :replace :ruleset safe)
-(rewrite (And (Not (And a b)) (Not (And a (Not b)))) (Not a) :replace :ruleset safe)
+(bw-replace (and (and a b) a) (and a b))
+(bw-replace (and (not (and a b)) (not (and a (not b)))) (not a))
 
 ; #### O3 rules
 
-(rewrite (And (Not (And a b)) b) (And (Not a) b) :replace :ruleset safe)
-(rewrite (And (Not (And a b)) (And b c)) (And (Not a) (And b c)) :replace :ruleset safe)
+(bw-replace (and (not (and a b)) b) (and (not a) b))
+(bw-replace (and (not (and a b)) (and b c)) (and (not a) (and b c)))
 
 ; #### O4 rules
 
-(rewrite (And (And a b) (And a d)) (And (And a b) d) :replace :ruleset safe)
+(bw-replace (and (and a b) (and a d)) (and (and a b) d) (and (and a d) b))
 
 ; ### Commutativity of `And`
 
-(rewrite (And a b) (And b a) :ruleset safe)
+(bw-rewrite (and a b) (and b a))
 
 ; Commutativity of `Or` is derivable.
 
 ; ### Associativity of `And` and `Or`
 
-(birewrite (And (And a b) c) (And a (And b c)) :ruleset unsafe)
-(birewrite (Or (Or a b) c) (Or a (Or b c)) :ruleset unsafe)
+(bw-rewrite-unsafe (and (and a b) c) (and a (and b c)))
+(bw-rewrite-unsafe (or (or a b) c) (or a (or b c)))
 
 ; ### Distributivity of `And` and `Or`
 
-(rewrite (And a (Or b c)) (Or (And a b) (And a c)) :ruleset unsafe)
-(rewrite (Or a (And b c)) (And (Or a b) (Or a c)) :ruleset unsafe)
+(bw-birewrite-unsafe (and a (or b c)) (or (and a b) (and a c)))
+(bw-birewrite-unsafe (or a (and b c)) (and (or a b) (or a c)))

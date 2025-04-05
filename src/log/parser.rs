@@ -1,8 +1,10 @@
-use crate::log::Log;
+use crate::log::{macros, Log};
 
 fn logbook_egglog_parser() -> egglog::ast::Parser {
     // Any macro definitions would go in here
-    egglog::ast::Parser::default()
+    let mut parser = egglog::ast::Parser::default();
+    macros::register_macros(&mut parser);
+    parser
 }
 
 impl Log {

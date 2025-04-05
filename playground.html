@@ -1,0 +1,8 @@
+<div id="egraph-visualizer"></div>
+<link rel="stylesheet" href="https://esm.sh/egraph-visualizer/dist/style.css" />
+<script type="module">
+    import { mount } from "https://esm.sh/egraph-visualizer";
+    const mounted = mount(document.getElementById("egraph-visualizer"));
+    mounted.render([await (await fetch('./playground.out.json')).text()]);
+    // later can call mounted.unmount() to remove the visualizer
+</script>

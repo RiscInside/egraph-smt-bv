@@ -4,3 +4,4 @@
 *.out.egg
 *.out.json
 *.out.svg
+playground.smt2

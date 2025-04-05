@@ -87,8 +87,8 @@
 (rule ((= e (ZeroExtend n exp)) (= w (Width exp))) ((set (Width e) (+ w n))) :ruleset safe)
 (rule ((= e (SignExtend n exp)) (= w (Width exp))) ((set (Width e) (+ w n))) :ruleset safe)
 
-(rule ((= e (BvNot e1)) (= w (Width e))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvNeg e1)) (= w (Width e))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvNot e1)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvNeg e1)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
 
 (rule ((= e (BvAnd e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
 (rule ((= e (BvOr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)

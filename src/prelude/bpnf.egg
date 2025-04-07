@@ -3,6 +3,29 @@
 ; These rules are based on Concat Normal Form and Bit Propogation Normal Form
 ; papers. We try to identify things that are roughly similar.
 
+; ### Desugaring some operators
+
+; `Repeat` is just a sequence of `Concat` calls.
+
+(rewrite (Repeat 1 e) e :ruleset desugar)
+(rewrite (Repeat n e) (Concat (Repeat (- n 1) e) e) :ruleset desugar :when ((> n 1)))
+(rule ((Repeat n e)) ((delete (Repeat n e))) :ruleset post-desugar)
+
+; `RotateLeft` and `RotateRight` by 0 bits does nothing.
+
+(rewrite (RotateLeft 0 e) e :ruleset desugar)
+(rewrite (RotateRight 0 e) e :ruleset desugar)
+
+; `RotateLeft` and `RotateRight` by more than `w` bits wraps around.
+
+(rewrite (RotateLeft i e) (RotateLeft (% i w) e) :when ((>= i w) (= w (Width e))) :ruleset desugar)
+(rewrite (RotateRight i e) (RotateRight (% i w) e) :when ((>= i w) (= w (Width e))) :ruleset desugar)
+
+; Otherwise, we can lower `RotateLeft` and `RotateRight` as `Concat` of two `Extract`s.
+
+(rewrite (RotateRight i e) (Concat (Extract (- i 1) 0 e) (Extract (- w 1) i e)) :when ((> i 0) (= w (Width e)) (< i w)) :ruleset desugar)
+(rewrite (RotateLeft i e) (Concat (Extract (- (- w i) 1) 0 e) (Extract (- w 1) (- w i) e)) :when ((> i 0) (= w (Width e)) (< i w)) :ruleset desugar)
+
 ; ### Reassociating concats
 
 (rewrite (Concat a (Concat b c)) (Concat (Concat a b) c) :replace :ruleset safe)

@@ -57,12 +57,6 @@
 (constructor BvSge (V V) V)
 (constructor BvSgt (V V) V)
 
-; We also define custom constant shifts to simplify some rewrite rules.
-
-(constructor BvShlC (V i64) V)
-(constructor BvLShrC (V i64) V)
-(constructor BvAShrC (V i64) V)
-
 ; ### Bitvector constants
 
 ; We use two different types for small and large bitvectors
@@ -83,50 +77,51 @@
 
 (function Width (V) i64 :no-merge)
 
+; We define a custom ruleset for width propogation - it runs together with safe
+; rules, but it also needs to run prior to desugaring.
+
+(ruleset width)
+
 ; #### Propagation rules
 
 ; We define width propagation rules for basic primitives. This mostly resemble
 ; ones implemented in the Rust sort checker.
 
-(rule ((= e (ITE c e1 e2)) (= w1 (Width e1))) ((set (Width e) w1)) :ruleset safe)
+(rule ((= e (ITE c e1 e2)) (= w1 (Width e1))) ((set (Width e) w1)) :ruleset width)
 
 (rule ((= e (Concat lhs rhs)) (= lw (Width lhs)) (= rw (Width rhs)))
-      ((set (Width e) (+ lw rw))) :ruleset safe)
-(rule ((= e (Extract i j exp))) ((set (Width e) (+ (- i j) 1))) :ruleset safe)
-(rule ((= e (Repeat n exp)) (= w (Width exp))) ((set (Width e) (* w n))) :ruleset safe)
-(rule ((= e (RotateLeft _ exp)) (= w (Width exp))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (ZeroExtend n exp)) (= w (Width exp))) ((set (Width e) (+ w n))) :ruleset safe)
-(rule ((= e (SignExtend n exp)) (= w (Width exp))) ((set (Width e) (+ w n))) :ruleset safe)
+      ((set (Width e) (+ lw rw))) :ruleset width)
+(rule ((= e (Extract i j exp))) ((set (Width e) (+ (- i j) 1))) :ruleset width)
+(rule ((= e (Repeat n exp)) (= w (Width exp))) ((set (Width e) (* w n))) :ruleset width)
+(rule ((= e (RotateLeft _ exp)) (= w (Width exp))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (ZeroExtend n exp)) (= w (Width exp))) ((set (Width e) (+ w n))) :ruleset width)
+(rule ((= e (SignExtend n exp)) (= w (Width exp))) ((set (Width e) (+ w n))) :ruleset width)
 
-(rule ((= e (BvNot e1)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvNeg e1)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvNot e1)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvNeg e1)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
 
-(rule ((= e (BvAnd e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvOr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvXor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvNand e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvNor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvXNor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvAnd e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvOr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvXor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvNand e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvNor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvXNor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
 
-(rule ((= e (BvAdd e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvSub e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvMul e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvUDiv e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvURem e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvSDiv e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvSRem e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvSMod e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvShl e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvLShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvAShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvAdd e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvSub e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvMul e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvUDiv e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvURem e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvSDiv e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvSRem e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvSMod e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvShl e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvLShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvAShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
 
-(rule ((= e (BvSmall w v))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvLarge w v))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvAll b w))) ((set (Width e) w)) :ruleset safe)
-
-(rule ((= e (BvShlC e1 c)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvLShrC e1 c)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
-(rule ((= e (BvAShrC e1 c)) (= w (Width e1))) ((set (Width e) w)) :ruleset safe)
+(rule ((= e (BvSmall w v))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvLarge w v))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvAll b w))) ((set (Width e) w)) :ruleset width)
 
 ; #### Constant folding rules for bitvectors
 

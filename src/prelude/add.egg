@@ -24,4 +24,4 @@
 
 ; The rule below does one half-adder step. It is highly explosive.
 
-(rewrite (BvAdd a b) (BvAdd (BvXor a b) (BvShlC (BvAnd a b) 1)) :when ((> (Width a) 1)) :ruleset once)
+(rewrite (BvAdd a b) (BvAdd (BvXor a b) (Concat (Extract (- w 2) 0 (BvAnd a b)) (BvSmall 1 (from-string "0")))) :when ((= w (Width a)) (> (Width a) 1)) :ruleset once)

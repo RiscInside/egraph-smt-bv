@@ -50,6 +50,7 @@ impl Context {
         self.run_cmds(vec![Command::RunSchedule(Schedule::Sequence(
             span!(),
             vec![
+                saturate_schedule("width"),
                 saturate_schedule("desugar"),
                 saturate_schedule("post-desugar"),
             ],

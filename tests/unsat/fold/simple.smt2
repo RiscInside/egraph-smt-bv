@@ -7,6 +7,8 @@
 (assert (= (test #x4) (= (bvmul #b1110 #b0010) #b1100)))
 (assert (= (test #x5) (= (bvshl #b1100 #b0010) #b0000)))
 (assert (= (test #x6) (= (bvlshr #b1100 #b0001) #b0110)))
+(assert (= (test #x7) (= ((_ rotate_left 3) #b10100001) #b00001101)))
+(assert (= (test #x8) (= ((_ rotate_right 3) #b10100001) #b00110100)))
 
-(assert (not (and (test #x0) (test #x1) (test #x2) (test #x3) (test #x4) (test #x5) (test #x6))))
+(assert (not (and (test #x0) (test #x1) (test #x2) (test #x3) (test #x4) (test #x5) (test #x6) (test #x7) (test #x8))))
 (check-sat)

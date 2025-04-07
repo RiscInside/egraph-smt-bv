@@ -59,10 +59,9 @@
 
 ; ### Bitvector constants
 
-; We use two different types for small and large bitvectors
+; `BvConst` defines bitvector constants of a given width.
 
-(constructor BvSmall (i64 SmallBitVec) V)
-(constructor BvLarge (i64 BigInt) V)
+(constructor BvConst (BigInt i64) V)
 
 ; We also define `(BvAll b w)` to represent all-zero/all-one bitvectors
 ; of width `w` (`b = false` for all-zeros and `b = true` for all-ones).
@@ -119,26 +118,48 @@
 (rule ((= e (BvLShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
 (rule ((= e (BvAShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
 
-(rule ((= e (BvSmall w v))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvLarge w v))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (BvConst v w))) ((set (Width e) w)) :ruleset width)
 (rule ((= e (BvAll b w))) ((set (Width e) w)) :ruleset width)
+
+; #### Constants are always positive
+
+; This is a simple check that every computed `BvConst` is positive. Negative signed values should
+; be represented as their (positive) twos-complement representation.
+
+(rule ((BvConst a _) (< a __zero)) ((panic "Negative constant detected. This is a constant fold bug")))
 
 ; #### Constant folding rules for bitvectors
 
-(rewrite (BvNot (BvSmall w a)) (BvSmall w (not-sbv a w)) :replace :ruleset safe)
-(rewrite (BvNeg (BvSmall w a)) (BvSmall w (neg a w)) :replace :ruleset safe)
+; Note that we only define folding rules for some operators here, as others can be derived from those.
 
-(rewrite (BvAnd (BvSmall w a) (BvSmall _w b)) (BvSmall w (& a b w)) :replace :ruleset safe)
-(rewrite (BvOr (BvSmall w a) (BvSmall _w b)) (BvSmall w (| a b w)) :replace :ruleset safe)
-(rewrite (BvXor (BvSmall w a) (BvSmall _w b)) (BvSmall w (^ a b w)) :replace :ruleset safe)
+; `Concat` and `Extract` are implemented with bit-shifts on bigints.
 
-(rewrite (BvAdd (BvSmall w a) (BvSmall _w b)) (BvSmall w (+ a b w)) :replace :ruleset safe)
-(rewrite (BvSub (BvSmall w a) (BvSmall _w b)) (BvSmall w (- a b w)) :replace :ruleset safe)
-(rewrite (BvMul (BvSmall w a) (BvSmall _w b)) (BvSmall w (* a b w)) :replace :ruleset safe)
-(rewrite (BvUDiv (BvSmall w a) (BvSmall _w b)) (BvSmall w (/u a b w)) :replace :ruleset safe)
+(rewrite (Concat (BvConst a w1) (BvConst b w2)) (BvConst (| (<< a w2) b) (+ w1 w2)) :subsume :ruleset safe)
+(rewrite (Extract i j (BvConst a w)) (BvConst (& (>> a j) (- (<< __1 i) __1)) (+ 1 (- i j))) :subsume :ruleset safe)
 
-(rewrite (BvShl (BvSmall w a) (BvSmall _w b)) (BvSmall w (<< a b w)) :replace :ruleset safe)
-(rewrite (BvLShr (BvSmall w a) (BvSmall _w b)) (BvSmall w (>> a b w)) :replace :ruleset safe)
+; `BvAnd` rule is fairly straightforward - we don't have any leading 1 btis.
 
-(rewrite (Concat (BvSmall w1 a) (BvSmall w2 b)) (BvSmall (+ w1 w2) (concat a b w2)) :replace :ruleset safe)
-(rewrite (Extract i j (BvSmall w a)) (BvSmall (- (+ i 1) j) (extract a i j)) :replace :ruleset safe)
+(rewrite (BvAnd (BvConst a w) (BvConst b _)) (BvConst (& a b) w) :subsume :ruleset safe)
+
+; `BvNot` rule is implemented with XOR to prevent introduction of leading 1 bits.
+
+(rewrite (BvNot (BvConst a w)) (BvConst (^ (- (<< __1 w) __1) a) w) :subsume :ruleset safe)
+
+; `BvAdd` and `BvMul` can be implemented with corresponding unsigned operations. We then need to 
+; wrap them around 2^w to ensure canonicity.
+
+(rewrite (BvAdd (BvConst a w) (BvConst b _)) (BvConst (% (+ a b) (<< __1 w)) w) :subsume :ruleset safe)
+(rewrite (BvMul (BvConst a w) (BvConst b _)) (BvConst (% (* a b) (<< __1 w)) w) :subsume :ruleset safe)
+
+; `BvUDiv` and `BvURem` are implemented with `/` and `%` as both values are known to be unsigned.
+; We need to check for 0 to respect SMT2LIB semantics.
+
+(rewrite (BvUDiv (BvConst a w) (BvConst b _)) (BvConst (/ a b) w) :when ((!= b __0)) :subsume :ruleset safe)
+(rewrite (BvURem (BvConst a w) (BvConst b _)) (BvConst (% a b) w) :when ((!= b __0)) :subsume :ruleset safe)
+
+; Bit-shifts. 
+
+; Different bitvectors are not equal.
+
+(rewrite (Equal (BvConst a w) (BvConst b _)) ff :when ((!= a b)) :subsume :ruleset safe)
+

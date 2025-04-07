@@ -1,5 +1,13 @@
 ; <summary>add.egg - addition, subtraction, and negation rules</summary>
 
+; ### Desugaring subtractions and negations
+
+(rewrite (BvSub a b) (BvAdd a (BvNeg b)) :ruleset desugar)
+(rewrite (BvNeg e) (BvAdd (BvNot e) (BvConst __1 w)) :when ((= w (Width e))) :ruleset desugar)
+
+(rule ((BvSub a b)) ((delete (BvSub a b))) :ruleset post-desugar)
+(rule ((BvNeg e)) ((delete (BvNeg e))) :ruleset post-desugar)
+
 ; ### Commutativity
 
 (rewrite (BvAdd a b) (BvAdd b a) :ruleset safe)
@@ -24,4 +32,4 @@
 
 ; The rule below does one half-adder step. It is highly explosive.
 
-(rewrite (BvAdd a b) (BvAdd (BvXor a b) (Concat (Extract (- w 2) 0 (BvAnd a b)) (BvSmall 1 (from-string "0")))) :when ((= w (Width a)) (> (Width a) 1)) :ruleset once)
+(rewrite (BvAdd a b) (BvAdd (BvXor a b) (Concat (Extract (- w 2) 0 (BvAnd a b)) (BvAll false 1))) :when ((= w (Width a)) (> (Width a) 1)) :ruleset once)

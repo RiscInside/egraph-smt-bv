@@ -1,5 +1,13 @@
 ; <summary>prelude.egg - essential types/rulesets needed for the solver to function</summary>
 
+; ### Bigint helpers
+
+; We define `__0` and `__1` constants for 0 and 1 bigint values respectively. Those
+; are used way too often to type (from-string "0") every single time.
+
+(let __0 (from-string "0"))
+(let __1 (from-string "1"))
+
 ; ### Values (`V`)
 ; `V` defines all SMT2LIB values. We choose to make values untyped as that
 ; reduces rule duplication across types.

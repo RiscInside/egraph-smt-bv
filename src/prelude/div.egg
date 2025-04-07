@@ -1,0 +1,6 @@
+; <summary>div.egg - division and remainder rules</summary>
+
+; ### Division by zero
+
+(rewrite (BvUDiv a (BvConst __0 w)) (BvConst (- (<< __1 w) __1) w) :subsume :ruleset safe)
+(rewrite (BvURem a (BvConst __0 w)) a :subsume :ruleset safe)

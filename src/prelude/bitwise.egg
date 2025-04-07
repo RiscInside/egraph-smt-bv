@@ -33,11 +33,16 @@
 
 (bw-replace (not (not a)) a)
 
-; We can propogate constants in both directions through `Not`
+; We can propogate constants through `Not`.
 
 (bw-replace (not (lift b)) (lift (not b)))
-(rule ((= (Not e) (B b))) ((subsume (Not e)) (union e (B (not b)))) :ruleset safe)
-(rule ((= (BvNot e) (BvAll b w)) (= w (Width e))) ((subsume (BvNot e)) (union e (BvAll (not b) w))) :ruleset safe)
+
+; ### Bidirectionality of `Not`
+
+; `Not`/`BvNot` is a bijection with itself as an inverse.
+
+(rule ((= (Not x) y)) ((union x (Not y))) :ruleset safe)
+(rule ((= (BvNot x) y)) ((union x (Not y))) :ruleset safe)
 
 ; ### Pushing constant booleans through And
 

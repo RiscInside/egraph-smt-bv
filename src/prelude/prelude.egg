@@ -50,9 +50,27 @@
 
 (ruleset once)
 
+; ### Folding ruleset (`fold`)
+
+; `fold` ruleset contains rules that reduces e-nodes to their simpler versions.
+; This ruleset is meant to make e-graph simpler than it was before folding. `fold`
+; ruleset should ideally not introduce new expression e-nodes.
+
+(ruleset fold)
+
+; ### Equality intro ruleset
+
+; `eq` ruleset allows to go from `Equal x y = true` to `x = y`. This
+; effectively allows user to encode any user-defined cycle, so
+; only cycle-safe rules should past execution of this ruleset
+
+(ruleset eq)
+
 ; ### Saturating ruleset (`safe`)
 
-; `safe` ruleset contains rules that are always eventually saturating.
+; `safe` ruleset contains rules that are always eventually saturating. The bar
+; for inclusion into `safe` is lower than that for `fold`, so more things can
+; go here.
 
 (ruleset safe)
 

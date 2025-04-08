@@ -1,19 +1,21 @@
-; <summary>propositional.egg - Lifting booleans to propositions</summary>
+; <summary>propositional.egg - lifting booleans to propositions judgements</summary>
 
 ; ### Deriving UNSAT from boolean constant propagation
 
-(rule ((= (B true) (B false))) ((set (ProvenUnsat) true)) :ruleset safe)
+(rule ((= (B true) (B false))) ((set (ProvenUnsat) true)) :ruleset fold)
 
 ; ### If-then-else constant folding
 
-(rewrite (ITE tt a b) a :replace :ruleset safe)
-(rewrite (ITE ff a b) b :replace :ruleset safe)
+(rewrite (ITE tt a b) a :subsume :ruleset fold)
+(rewrite (ITE ff a b) b :subsume :ruleset fold)
 
 ; ### Equality rules
 
-(rule ((= tt (Equal e1 e2))) ((union e1 e2)) :ruleset safe)
-(rewrite (Equal e e) tt :ruleset safe)
-(rewrite (Equal tt ff) ff :ruleset safe)
+(rule ((= tt (Equal e1 e2))) ((union e1 e2)) :ruleset eq)
+(rewrite (Equal e e) tt :ruleset fold)
+(rewrite (Equal tt ff) ff :ruleset fold)
 
-; We can also get rid of redundant equalities (to make e-graph a bit more readable4)
-(rule ((= _ (Equal v v))) ((delete (Equal v v))) :ruleset safe)
+(rewrite (Equal x y) (Equal y x) :ruleset safe)
+
+; We can also get rid of redundant equalities (to make e-graph a bit more readable)
+(rule ((= tt (Equal v v))) ((delete (Equal v v))) :ruleset fold)

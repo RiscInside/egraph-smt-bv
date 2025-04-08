@@ -75,6 +75,7 @@ impl Context {
         let top_search_time = top_entries(&report.search_time_per_rule, Duration::new(0, 0));
         let top_apply_time = top_entries(&report.apply_time_per_rule, Duration::new(0, 0));
 
+        let (fold_search, fold_apply, fold_rebuild) = get_ruleset_times(report, "fold");
         let (safe_search, safe_apply, safe_rebuild) = get_ruleset_times(report, "safe");
         let (unsafe_search, unsafe_apply, unsafe_rebuild) = get_ruleset_times(report, "unsafe");
 
@@ -85,6 +86,9 @@ impl Context {
         self.newline()?;
         self.text("| Ruleset | Search time | Apply time | Rebuild time |")?;
         self.text("|---------|-------------|------------|--------------|")?;
+        self.text(&format!(
+            "| `fold` | {fold_search:?} | {fold_apply:?} | {fold_rebuild:?}"
+        ))?;
         self.text(&format!(
             "| `safe` | {safe_search:?} | {safe_apply:?} | {safe_rebuild:?}"
         ))?;

@@ -1,4 +1,4 @@
-; <summary>bitwise.egg - simplifications of boolean/bitwise functions based on AND/NOT lowering (AIGs)</summary>
+; <summary>bitwise.egg - simplifications of boolean/bitwise functions</summary>
 
 ; We define a set of rules inspired by AIGs simplifications as seen in
 ; literature. We are using And/Not constructors directly here instead of
@@ -31,7 +31,7 @@
 
 ; One rule implicit in AIGs is `Not` folding. We can define this rule to be replacing
 
-(bw-replace (not (not a)) a)
+(bw-rewrite (not (not a)) a)
 
 ; We can propogate constants through `Not`.
 
@@ -41,16 +41,16 @@
 
 ; `Not`/`BvNot` is a bijection with itself as an inverse.
 
-(rule ((= (Not x) y)) ((union x (Not y))) :ruleset safe)
-(rule ((= (BvNot x) y)) ((union x (BvNot y))) :ruleset safe)
+(rule ((= (Not x) y)) ((union x (Not y))) :ruleset fold)
+(rule ((= (BvNot x) y)) ((union x (BvNot y))) :ruleset fold)
 
 ; ### Pushing constant booleans through And
 
 (rule ((= tt (And a b))) ((union tt a) (union tt b)
-      (subsume (And a b))) :ruleset safe)
+      (subsume (And a b))) :ruleset fold)
 (rule ((= (BvAll true w) (BvAnd a b)) (= w (Width a)))
       ((union (BvAnd a b) a) (union (BvAnd a b) b) (subsume (BvAnd a b)))
-      :ruleset safe)
+      :ruleset fold)
 
 ; ### `AIG` simplifications
 

@@ -1,10 +1,18 @@
 ; ### Running `check-sat`
 
 (run-schedule
-    (saturate (run width))
+    (saturate
+        (run width)
+        (run fold :until (= true (ProvenUnsat)))
+        (run eq))
     ; Run once ruleset
-    (run once)
+    (run once :until (= true (ProvenUnsat)))
     ; Alternate between saturating safe ruleset and running some unsafe rules
-    (repeat 2
-        (saturate (run safe :until (= true (ProvenUnsat))) (run width))
+    (repeat 5
+        (saturate
+            (run width)
+            (run eq)
+            (run fold :until (= true (ProvenUnsat)))
+            (run safe :until (= true (ProvenUnsat))))
         (run unsafe :until (= true (ProvenUnsat)))))
+

@@ -134,29 +134,29 @@
 
 ; `Concat` and `Extract` are implemented with bit-shifts on bigints.
 
-(rewrite (Concat (BvConst a w1) (BvConst b w2)) (BvConst (| (<< a w2) b) (+ w1 w2)) :subsume :ruleset safe)
-(rewrite (Extract i j (BvConst a w)) (BvConst (& (>> a j) (- (<< __1 i) __1)) (+ 1 (- i j))) :subsume :ruleset safe)
+(rewrite (Concat (BvConst a w1) (BvConst b w2)) (BvConst (| (<< a w2) b) (+ w1 w2)) :subsume :ruleset fold)
+(rewrite (Extract i j (BvConst a w)) (BvConst (& (>> a j) (- (<< __1 i) __1)) (+ 1 (- i j))) :subsume :ruleset fold)
 
 ; `BvAnd` rule is fairly straightforward - we don't have any leading 1 btis.
 
-(rewrite (BvAnd (BvConst a w) (BvConst b _)) (BvConst (& a b) w) :subsume :ruleset safe)
+(rewrite (BvAnd (BvConst a w) (BvConst b _)) (BvConst (& a b) w) :subsume :ruleset fold)
 
 ; `BvNot` rule is implemented with XOR to prevent introduction of leading 1 bits.
 
-(rewrite (BvNot (BvConst a w)) (BvConst (^ (- (<< __1 w) __1) a) w) :subsume :ruleset safe)
+(rewrite (BvNot (BvConst a w)) (BvConst (^ (- (<< __1 w) __1) a) w) :subsume :ruleset fold)
 
 ; `BvAdd` and `BvMul` can be implemented with corresponding unsigned operations. We then need to 
 ; wrap them around 2^w to ensure canonicity.
 
-(rewrite (BvAdd (BvConst a w) (BvConst b _)) (BvConst (% (+ a b) (<< __1 w)) w) :subsume :ruleset safe)
-(rewrite (BvMul (BvConst a w) (BvConst b _)) (BvConst (% (* a b) (<< __1 w)) w) :subsume :ruleset safe)
+(rewrite (BvAdd (BvConst a w) (BvConst b _)) (BvConst (% (+ a b) (<< __1 w)) w) :subsume :ruleset fold)
+(rewrite (BvMul (BvConst a w) (BvConst b _)) (BvConst (% (* a b) (<< __1 w)) w) :subsume :ruleset fold)
 
 ; `BvUDiv` and `BvURem` are implemented with `/` and `%` as both values are known to be unsigned.
 ; We need to check for 0 to respect SMT2LIB semantics.
 
-(rewrite (BvUDiv (BvConst a w) (BvConst b _)) (BvConst (/ a b) w) :when ((!= b __0)) :subsume :ruleset safe)
-(rewrite (BvURem (BvConst a w) (BvConst b _)) (BvConst (% a b) w) :when ((!= b __0)) :subsume :ruleset safe)
+(rewrite (BvUDiv (BvConst a w) (BvConst b _)) (BvConst (/ a b) w) :when ((!= b __0)) :subsume :ruleset fold)
+(rewrite (BvURem (BvConst a w) (BvConst b _)) (BvConst (% a b) w) :when ((!= b __0)) :subsume :ruleset fold)
 
 ; Different bitvectors are not equal.
 
-(rewrite (Equal (BvConst a w) (BvConst b _)) ff :when ((!= a b)) :subsume :ruleset safe)
+(rewrite (Equal (BvConst a w) (BvConst b _)) ff :when ((!= a b)) :subsume :ruleset fold)

@@ -28,35 +28,35 @@
 
 ; ### Reassociating concats
 
-(rewrite (Concat a (Concat b c)) (Concat (Concat a b) c) :replace :ruleset safe)
+(rewrite (Concat a (Concat b c)) (Concat (Concat a b) c) :subsume :ruleset fold)
 
 ; ### Pushing extractions through concatenations
 
 (rule ((= e (Extract i j (Concat a b))) (= bw (Width b)) (< i bw))
       ((subsume (Extract i j (Concat a b))) (union e (Extract i j b)))
-      :ruleset safe)
+      :ruleset fold)
 (rule ((= e (Extract i j (Concat a b))) (= bw (Width b)) (>= j bw))
       ((subsume (Extract i j (Concat a b))) (union e (Extract (- i bw) (- j bw) a)))
-      :ruleset safe)
+      :ruleset fold)
 (rule ((= e (Extract i j (Concat a b))) (= bw (Width b)) (>= i bw) (< j bw))
       ((subsume (Extract i j (Concat a b))) (union e (Concat (Extract (- i bw) 0 a) (Extract (- bw 1) j b))))
-      :ruleset safe)
+      :ruleset fold)
 
 ; ### Full width extractions
 
-(rule ((= e (Extract w 0 i)) (= (+ w 1) (Width i))) ((delete (Extract w 0 i)) (union e i)) :ruleset safe)
+(rule ((= e (Extract w 0 i)) (= (+ w 1) (Width i))) ((delete (Extract w 0 i)) (union e i)) :ruleset fold)
 
 ; ### Concat of two adjacent extractions
 
 (rule ((= e (Concat (Extract i j a) (Extract j k a))))
       ((union e (Extract i k a))
-       (subsume (Concat (Extract i j a) (Extract j k a)))) :ruleset safe)
+       (subsume (Concat (Extract i j a) (Extract j k a)))) :ruleset fold)
 
 ; ### Equality of two concats
 
 ; Concat is injective if operands have the same biwidth.
 
-(rule ((= (Concat a b) (Concat c d)) (= (Width a) (Width c))) ((union a c) (union b d)) :ruleset safe)
+(rule ((= (Concat a b) (Concat c d)) (= (Width a) (Width c))) ((union a c) (union b d)) :ruleset fold)
 
 ; This is a more complicated version when a and b have different bitwidths.
 

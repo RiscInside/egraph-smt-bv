@@ -2,5 +2,5 @@
 
 ; ### Division by zero
 
-(rewrite (BvUDiv a (BvConst __0 w)) (BvConst (- (<< __1 w) __1) w) :subsume :ruleset safe)
-(rewrite (BvURem a (BvConst __0 w)) a :subsume :ruleset safe)
+(rewrite (BvUDiv a (BvConst __0 w)) (BvConst (- (<< __1 w) __1) w) :subsume :ruleset fold)
+(rewrite (BvURem a (BvConst __0 w)) a :subsume :ruleset fold)

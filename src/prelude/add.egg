@@ -12,7 +12,7 @@
 
 ; ### Cancellation
 
-(rewrite (BvAdd a (BvNeg a)) (BvConst __0 w) :when ((= w (Width a))) :subsume :ruleset safe)
+(rewrite (BvAdd a (BvNeg a)) (BvConst __0 w) :when ((= w (Width a))) :subsume :ruleset fold)
 
 ; ## Going from `BvNeg` to `BvNot` and back
 
@@ -27,20 +27,22 @@
 
 (rewrite (BvAdd (BvAdd a b) c) (BvAdd a (BvAdd b c)) :ruleset unsafe)
 
-; ### Converting subtraction to negation
-
-(rewrite (BvSub a b) (BvAdd a (BvNeg b)) :replace :ruleset safe)
-
 ; ### Double negation elimination
 
-(rewrite (BvNeg (BvNeg a)) a :replace :ruleset safe)
+(rewrite (BvNeg (BvNeg a)) a :subsume :ruleset fold)
 
 ; ### Unfolding one step of `Add`
 
 ; Pathological case when bitvector has width 1.
 
-(rewrite (BvAdd a b) (BvXor a b) :replace :when ((= (Width a) 1)) :ruleset safe)
+(rewrite (BvAdd a b) (BvXor a b) :subsume :when ((= (Width a) 1)) :ruleset fold)
 
-; The rule below does one half-adder step. It is highly explosive.
+; The rule below does one half-adder step. It is highly explosive, so it goes into `once` ruleset - it is unlikely we will get a lot from applying it more than once.
 
-(rewrite (BvAdd a b) (BvAdd (BvXor a b) (Concat (Extract (- w 2) 0 (BvAnd a b)) (BvAll false 1))) :when ((= w (Width a)) (> (Width a) 1)) :ruleset once)
+(rewrite (BvAdd a b) (BvAdd (BvXor a b) (Concat (Extract (- w 2) 0 (BvAnd a b)) (BvAll false 1))) :when ((= w (Width a)) (> w 1)) :ruleset once)
+
+; ### Pushing down equality of `add` and `neg`
+
+(rewrite (Equal (BvAdd x y) (BvAdd y z)) (Equal x z) :ruleset safe)
+(rewrite (Equal (BvAdd x y) (BvAdd x z)) (Equal y z) :ruleset safe)
+(rewrite (Equal (BvNeg x) (BvNeg y)) (Equal x y) :ruleset safe)

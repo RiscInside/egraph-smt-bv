@@ -2,7 +2,7 @@
 
 %%
 
-(declare-const state |miter_s|) ; Assert random input state
-(assert (|miter_h| state)) ; Inputs match
-(assert (not (|miter#2| state))) ; Outputs don't match
+(declare-const state |miter_s|)
+(assert (|miter_h| state)) ; Hierarchy assertion
+(assert (not (|miter_a| state))) ; Miter assertion failure - output of miter is true
 (check-sat)

@@ -103,7 +103,10 @@
 ; yosys-smt2-input in_A 32
 ; yosys-smt2-witness {"offset": 0, "path": ["\\in_A"], "smtname": "in_A", "smtoffset": 0, "type": "input", "width": 32}
 (define-fun |miter_n in_A| ((state |miter_s|)) (_ BitVec 32) (|miter#8| state))
+; yosys-smt2-assert 0 $auto$miter.cc:274:create_miter_equiv$18
+(define-fun |miter_a 0| ((state |miter_s|)) Bool (or (|miter#2| state) (not true))) ; $auto$miter.cc:274:create_miter_equiv$18
 (define-fun |miter_a| ((state |miter_s|)) Bool (and
+  (|miter_a 0| state)
   (|unoptimized_a| (|miter_h gate| state))
   (|optimized_a| (|miter_h gold| state))
 ))
@@ -139,7 +142,7 @@
 )) ; end of module miter
 ; end of yosys output
 
-(declare-const state |miter_s|) ; Assert random input state
-(assert (|miter_h| state)) ; Inputs match
-(assert (not (|miter#2| state))) ; Outputs don't match
+(declare-const state |miter_s|)
+(assert (|miter_h| state))
+(assert (not (|miter_a| state)))
 (check-sat)

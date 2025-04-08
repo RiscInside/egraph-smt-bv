@@ -185,7 +185,7 @@ fn generate_rule(
     rhses: &[Box<BitwiseExpr>],
     lowering_mode: BitwiseLoweringMode,
     replace: bool,
-    safe: bool,
+    ruleset: &'static str,
 ) -> egglog::ast::Command {
     let target_var = parser.symbol_gen.fresh(&"__rewrite_var".into());
     let bv_width_var = parser.symbol_gen.fresh(&"__bv_width_var".into());
@@ -238,7 +238,7 @@ fn generate_rule(
 
     Command::Rule {
         name: "".into(),
-        ruleset: if safe { "safe" } else { "unsafe" }.into(),
+        ruleset: ruleset.into(),
         rule: Rule {
             span: span.clone(),
             head: GenericActions(actions),
@@ -296,7 +296,12 @@ impl Macro<Vec<Command>> for BitwiseMacro {
             .map(|e| BitwiseExpr::rhs_from_sexp(e, &vars))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let safe = !matches!(*self, BitwiseMacro::BiUnsafe | BitwiseMacro::Unsafe);
+        let ruleset = match *self {
+            BitwiseMacro::BiUnsafe | BitwiseMacro::Unsafe => "unsafe",
+            BitwiseMacro::Replacing => "fold",
+            BitwiseMacro::Plain | BitwiseMacro::Bi => "safe",
+        };
+
         let replace = *self == BitwiseMacro::Replacing;
         macro_rules! gen_rule {
             ($lhs:expr => $rhses:expr; $mode:ident) => {
@@ -307,7 +312,7 @@ impl Macro<Vec<Command>> for BitwiseMacro {
                     $rhses,
                     BitwiseLoweringMode::$mode,
                     replace,
-                    safe,
+                    ruleset,
                 )
             };
         }

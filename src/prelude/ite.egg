@@ -1,0 +1,19 @@
+; <summary>ite.egg - if-then-else rules</summary>
+
+; ### If-then-else constant folding
+
+(rewrite (ITE tt a b) a :subsume :ruleset fold)
+(rewrite (ITE ff a b) b :subsume :ruleset fold)
+
+; ### Redundant if-then-else
+
+(rewrite (ITE cond x x) x :subsume :ruleset fold)
+
+; ### Pushdown rules for operators
+
+(rewrite (ITE cond (BvAdd e1 e2) (BvAdd e3 e4))
+         (BvAdd (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset unsafe)
+
+(rewrite (ITE cond (Concat e1 e2) (Concat e3 e4))
+         (Concat (ITE cond e1 e3) (ITE cond e2 e4))
+         :when ((= (Width e1) (Width e3))) :ruleset unsafe)

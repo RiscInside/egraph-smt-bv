@@ -4,11 +4,6 @@
 
 (rule ((= (B true) (B false))) ((set (ProvenUnsat) true)) :ruleset fold)
 
-; ### If-then-else constant folding
-
-(rewrite (ITE tt a b) a :subsume :ruleset fold)
-(rewrite (ITE ff a b) b :subsume :ruleset fold)
-
 ; ### Equality rules
 
 (rule ((= tt (Equal e1 e2))) ((union e1 e2)) :ruleset eq)

@@ -32,28 +32,33 @@ fn fun_decl_egglog_command(name: &str, params_len: usize) -> Command {
     }
 }
 
-fn saturate_schedule(ruleset: &'static str) -> Schedule {
-    Schedule::Saturate(
-        span!(),
-        Box::new(egglog::ast::GenericSchedule::Run(
+mod schedule {
+    use super::*;
+    pub(crate) fn run(ruleset: &'static str) -> Schedule {
+        Schedule::Run(
             span!(),
             RunConfig {
                 ruleset: ruleset.into(),
                 until: None,
             },
-        )),
-    )
+        )
+    }
+
+    pub(crate) fn saturate(schedule: Schedule) -> Schedule {
+        Schedule::Saturate(span!(), Box::new(schedule))
+    }
+
+    pub(crate) fn seq2(schedule1: Schedule, schedule2: Schedule) -> Schedule {
+        Schedule::Sequence(span!(), vec![schedule1, schedule2])
+    }
 }
 
 impl Context {
     pub(crate) fn run_desugar(&mut self) -> anyhow::Result<()> {
-        self.run_cmds(vec![Command::RunSchedule(Schedule::Sequence(
-            span!(),
-            vec![
-                saturate_schedule("width"),
-                saturate_schedule("desugar"),
-                saturate_schedule("post-desugar"),
-            ],
+        use schedule::*;
+        self.run_cmds(vec![Command::RunSchedule(seq2(
+            saturate(seq2(run("width"), run("desugar"))),
+            run("post-desugar"),
         ))])
     }
 
@@ -159,7 +164,7 @@ impl Context {
 
             commands.push(Command::Rule {
                 name: format!("{name}-width").into(),
-                ruleset: "safe".into(),
+                ruleset: "width".into(),
                 rule: Rule {
                     span: span!(),
                     head: GenericActions(vec![Action::Set(

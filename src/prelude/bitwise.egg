@@ -22,7 +22,7 @@
 
 ; `BvNand`, `BvNor`, and `BvXNor` only exist for bitvectors
 
-(rewrite (BvNand e1 e2) (Not (And e1 e2)) :ruleset safe)
+(rewrite (BvNand e1 e2) (BvNot (BvAnd e1 e2)) :ruleset safe)
 (rewrite (BvNor e1 e2) (BvAnd (BvNot e1) (BvNot e2)) :ruleset safe)
 (rewrite (BvXNor e1 e2) (BvAnd (BvNot (BvAnd e1 (BvNot e2)))
                         (BvNot (BvAnd (BvNot e1) e2))) :ruleset safe)
@@ -42,7 +42,7 @@
 ; `Not`/`BvNot` is a bijection with itself as an inverse.
 
 (rule ((= (Not x) y)) ((union x (Not y))) :ruleset safe)
-(rule ((= (BvNot x) y)) ((union x (Not y))) :ruleset safe)
+(rule ((= (BvNot x) y)) ((union x (BvNot y))) :ruleset safe)
 
 ; ### Pushing constant booleans through And
 

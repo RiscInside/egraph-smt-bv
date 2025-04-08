@@ -157,9 +157,6 @@
 (rewrite (BvUDiv (BvConst a w) (BvConst b _)) (BvConst (/ a b) w) :when ((!= b __0)) :subsume :ruleset safe)
 (rewrite (BvURem (BvConst a w) (BvConst b _)) (BvConst (% a b) w) :when ((!= b __0)) :subsume :ruleset safe)
 
-; Bit-shifts. 
-
 ; Different bitvectors are not equal.
 
 (rewrite (Equal (BvConst a w) (BvConst b _)) ff :when ((!= a b)) :subsume :ruleset safe)
-

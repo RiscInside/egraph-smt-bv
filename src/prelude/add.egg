@@ -1,12 +1,23 @@
 ; <summary>add.egg - addition, subtraction, and negation rules</summary>
 
-; ### Desugaring subtractions and negations
+; ### Desugaring subtractions to negations
 
 (rewrite (BvSub a b) (BvAdd a (BvNeg b)) :ruleset desugar)
-(rewrite (BvNeg e) (BvAdd (BvNot e) (BvConst __1 w)) :when ((= w (Width e))) :ruleset desugar)
-
 (rule ((BvSub a b)) ((delete (BvSub a b))) :ruleset post-desugar)
-(rule ((BvNeg e)) ((delete (BvNeg e))) :ruleset post-desugar)
+
+; ### Pushing negations down
+
+(rewrite (BvNeg (BvAdd a b)) (BvAdd (BvNeg a) (BvNeg b)) :subsume :ruleset safe)
+(rewrite (BvNeg (BvNeg a)) a :subsume :ruleset safe)
+
+; ### Cancellation
+
+(rewrite (BvAdd a (BvNeg a)) (BvConst __0 w) :when ((= w (Width a))) :subsume :ruleset safe)
+
+; ## Going from `BvNeg` to `BvNot` and back
+
+(rewrite (BvNeg e) (BvAdd (BvNot e) (BvConst __1 w)) :when ((= w (Width e))) :ruleset safe)
+(rewrite (BvNot e) (BvAdd (BvNeg e) (BvConst (- (<< __1 w) __1) w)) :when ((= w (Width e))) :ruleset safe)
 
 ; ### Commutativity
 

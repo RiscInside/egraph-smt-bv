@@ -4,5 +4,4 @@ hierarchy
 memory
 proc
 miter -equiv optimized unoptimized miter
-write_smt2 -stbv verilog_examples/basic/basic.smt2
 write_smt2 -tpl verilog_examples/combinatorial.tpl -stbv verilog_examples/basic/basic.smt2

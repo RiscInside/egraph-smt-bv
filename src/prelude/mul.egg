@@ -1,5 +1,9 @@
 ; <summary>mul.egg - multiplication rules</summary>
 
+; ### Constant-folding
+
+(rewrite (BvMul (BvConst a w) (BvConst b _)) (BvConst (% (* a b) (<< __1 w)) w) :subsume :ruleset fold)
+
 ; ### Commutativity
 
 (rewrite (BvMul a b) (BvMul b a) :ruleset safe)

@@ -106,3 +106,16 @@
 
 (bw-birewrite-unsafe (and a (or b c)) (or (and a b) (and a c)))
 (bw-birewrite-unsafe (or a (and b c)) (and (or a b) (or a c)))
+
+; ### Constant folding for bit-vectors
+
+; It is sufficient to implement constant folding rules for `BvAnd` and `BvNot`, as all
+; other bitwise operators are (sometimes non-destructively) lowered to those.
+
+; `BvAnd` rule is fairly straightforward - we don't have any leading 1 bits.
+
+(rewrite (BvAnd (BvConst a w) (BvConst b _)) (BvConst (& a b) w) :subsume :ruleset fold)
+
+; `BvNot` rule is implemented with XOR to prevent introduction of leading 1 bits.
+
+(rewrite (BvNot (BvConst a w)) (BvConst (^ (- (<< __1 w) __1) a) w) :subsume :ruleset fold)

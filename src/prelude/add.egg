@@ -14,10 +14,57 @@
 
 (rewrite (BvAdd a (BvNeg a)) (BvConst __0 w) :when ((= w (Width a))) :subsume :ruleset fold)
 
-; ## Going from `BvNeg` to `BvNot` and back
+; ### Constant addition
 
-(rewrite (BvNeg e) (BvAdd (BvNot e) (BvConst __1 w)) :when ((= w (Width e))) :ruleset safe)
-(rewrite (BvNot e) (BvAdd (BvNeg e) (BvConst (- (<< __1 w) __1) w)) :when ((= w (Width e))) :ruleset safe)
+; Negation <-> bitwise-not rules produce many +1/-1 additions. Those are then combined in many
+; different ways by associativity/commutativity rewrites for addition, causing the e-graph to
+; blow up.
+
+; To solve this, we add a custom operator for adding constants that can be pushed upwards
+; through `BvAdd` and `BvNeg`.
+
+(constructor BvAddC (V BigInt) V)
+
+(rule ((= e (BvAddC e1 _)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+
+; We convert constant additions to `BvAddC`.
+
+(rewrite (BvAdd x (BvConst v _)) (BvAddC x v) :subsume :ruleset fold)
+(rewrite (BvAdd (BvConst v _) x) (BvAddC x v) :subsume :ruleset fold)
+
+; Adding 0 has no effect.
+
+(rewrite (BvAddC x __0) x :subsume :ruleset fold)
+
+; We can collapse multiple `BvAddC`s together.
+
+(rewrite (BvAddC (BvAddC x p) q) (BvAddC x (% (+ p q) (<< __1 w))) :when ((= w (Width x))) :ruleset fold)
+
+; `BvAddC` can travel through `BvAdd`.
+
+(rewrite (BvAdd (BvAddC x v) y) (BvAddC (BvAdd x y) v) :ruleset safe)
+(rewrite (BvAdd x (BvAddC y v)) (BvAddC (BvAdd x y) v) :ruleset safe)
+
+; `BvAddC` can also travel through `BvNeg`.
+
+(rewrite (BvNeg (BvAddC x v)) (BvAddC (BvNeg x) (- (<< __1 w) v)) :when ((= w (Width x))) :ruleset safe)
+
+; `BvAddC` can go in both directions.
+
+(rule ((= x (BvAddC y v)) (= w (Width y))) ((union y (BvAddC x (- (<< __1 w) v)))) :ruleset safe)
+
+; ### Going from `BvNeg` to `BvNot` and back
+
+; We can now use `BvAddC` operator to lower `BvNeg` and `BvNot`.
+
+(rewrite (BvNeg e) (BvAddC (BvNot e) __1) :ruleset safe)
+(rewrite (BvNot e) (BvAddC (BvNeg e) (- (<< __1 w) __1)) :when ((= w (Width e))) :ruleset safe)
+
+; ### Constant folding
+
+; Constants can pass through `BvAddC`. 
+
+(rewrite (BvAddC (BvConst x w) y) (BvConst (% (+ x y) (<< __1 w)) w) :ruleset fold)
 
 ; ### Commutativity
 

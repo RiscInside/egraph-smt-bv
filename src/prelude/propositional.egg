@@ -7,10 +7,10 @@
 ; ### Equality rules
 
 (rule ((= tt (Equal e1 e2))) ((union e1 e2)) :ruleset eq)
-(rewrite (Equal e e) tt :ruleset fold)
-(rewrite (Equal tt ff) ff :ruleset fold)
+(rewrite (Equal e e) tt :subsume :ruleset fold)
+(rewrite (Equal tt ff) ff :subsume :ruleset fold)
 
 (rewrite (Equal x y) (Equal y x) :ruleset safe)
 
 ; We can also get rid of redundant equalities (to make e-graph a bit more readable)
-(rule ((= tt (Equal v v))) ((delete (Equal v v))) :ruleset fold)
+; (rule ((= tt (Equal v v))) ((delete (Equal v v))) :ruleset fold)

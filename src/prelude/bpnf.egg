@@ -21,6 +21,11 @@
 (rewrite (RotateLeft i e) (RotateLeft (% i w) e) :when ((>= i w) (= w (Width e))) :ruleset desugar)
 (rewrite (RotateRight i e) (RotateRight (% i w) e) :when ((>= i w) (= w (Width e))) :ruleset desugar)
 
+; `ZeroExtend` is just Concat with a few zeros. We do not cast out `ZeroExtend` completely, as
+; it's often used in arithmetic rewrites.
+
+(birewrite (ZeroExtend n w) (Concat (BvAll false n) w) :ruleset safe)
+
 ; Otherwise, we can lower `RotateLeft` and `RotateRight` as `Concat` of two `Extract`s.
 
 (rewrite (RotateRight i e) (Concat (Extract (- i 1) 0 e) (Extract (- w 1) i e)) :when ((> i 0) (= w (Width e)) (< i w)) :ruleset desugar)
@@ -52,6 +57,11 @@
       ((union e (Extract i k a))
        (subsume (Concat (Extract i j a) (Extract j k a)))) :ruleset fold)
 
+; ### Equality from two adjacent extractions
+
+(rule ((= (Extract ia ja a) (Extract ib jb b)) (= (Extract ja ka a) (Extract jb kb b))) 
+((union (Extract ia ka a) (Extract ib kb b))) :ruleset safe)
+
 ; ### Equality of two concats
 
 ; Concat is injective if operands have the same biwidth.
@@ -69,6 +79,19 @@
        (union (Extract (- (- dw bw) 1) 0 a) (Extract (- dw 1) bw d))
        (union c (Extract (- aw 1) (- dw bw) a))
       ) :ruleset safe)
+
+; ### Pushing `BvNot` through concats
+
+(rewrite (BvNot (Concat a b)) (Concat (BvNot a) (BvNot b)) :ruleset safe)
+
+; ### Pushing `BvAnd` through concats.
+
+(rewrite (BvAnd a (Concat b c)) (Concat
+         (BvAnd (Extract (- wa 1) wc a) b)
+         (BvAnd (Extract (- wc 1) 0 a) c))
+         :when ((= wa (Width a)) (= wc (Width c))) :ruleset safe)
+
+; All other bitwise operators naturally follow.
 
 ; ### Constant folding for concat/extract
 

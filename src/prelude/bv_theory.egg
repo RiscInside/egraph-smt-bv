@@ -68,6 +68,10 @@
 
 (constructor BvAll (bool i64) V)
 
+; `(BvAll false w)` is equivalent to `(BvConst 0 _w)
+
+(birewrite (BvAll false w) (BvConst __0 w) :ruleset fold)
+
 ; #### Constants are always positive
 
 ; This is a simple check that every computed `BvConst` is positive. Negative signed values should

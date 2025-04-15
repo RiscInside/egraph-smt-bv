@@ -80,15 +80,15 @@
        (union c (Extract (- aw 1) (- dw bw) a))
       ) :ruleset safe)
 
-; ### Pushing `BvNot` through concats
+; ### Pushing `Not` through concats
 
-(rewrite (BvNot (Concat a b)) (Concat (BvNot a) (BvNot b)) :ruleset safe)
+(rewrite (Not (Concat a b)) (Concat (Not a) (Not b)) :ruleset safe)
 
-; ### Pushing `BvAnd` through concats.
+; ### Pushing `And` through concats.
 
-(rewrite (BvAnd a (Concat b c)) (Concat
-         (BvAnd (Extract (- wa 1) wc a) b)
-         (BvAnd (Extract (- wc 1) 0 a) c))
+(rewrite (And a (Concat b c)) (Concat
+         (And (Extract (- wa 1) wc a) b)
+         (And (Extract (- wc 1) 0 a) c))
          :when ((= wa (Width a)) (= wc (Width c))) :ruleset safe)
 
 ; All other bitwise operators naturally follow.

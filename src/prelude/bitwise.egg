@@ -8,48 +8,42 @@
 
 ; We have rules for lowering `Or`, `Xor`, and `Implies` to `Not` and `And`.
 ; We choose to keep original e-nodes in the e-graph so that rewrite rules can
-; still produce those e-nodes when convinient. There is no subsumption either, 
+; still produce those e-nodes when convenient. There is no subsumption either, 
 ; as aig simplification rules won't get any performance boost from subsuming
 ; e-nodes from other tables.
 
-(bw-birewrite (or e1 e2) (not (and (not e1) (not e2))))
-(bw-rewrite (xor e1 e2)
-         (not (and (not (and e1 (not e2))) (not (and (not e1) e2)))))
-
-; `Implies` only exists for booleans.
-
-(rewrite (Implies e1 e2) (Not (And e1 (Not e2))) :ruleset safe)
-
-; `BvNand`, `BvNor`, and `BvXNor` only exist for bitvectors
-
-(rewrite (BvNand e1 e2) (BvNot (BvAnd e1 e2)) :ruleset safe)
-(rewrite (BvNor e1 e2) (BvAnd (BvNot e1) (BvNot e2)) :ruleset safe)
-(rewrite (BvXNor e1 e2) (BvAnd (BvNot (BvAnd e1 (BvNot e2)))
-                        (BvNot (BvAnd (BvNot e1) e2))) :ruleset safe)
+(birewrite (Or e1 e2) (Not (And (Not e1) (Not e2))) :ruleset fold)
+(rewrite (Xor e1 e2)
+         (Not (And (Not (And e1 (Not e2))) (Not (And (Not e1) e2)))) :ruleset fold)
+(rewrite (Implies e1 e2) (Not (And e1 (Not e2))) :ruleset fold)
+(rewrite (Nand e1 e2) (Not (And e1 e2)) :ruleset fold)
+(rewrite (Nor e1 e2) (And (Not e1) (Not e2)) :ruleset fold)
+(rewrite (XNor e1 e2) (And (Not (And e1 (Not e2)))
+                        (Not (And (Not e1) e2))) :ruleset fold)
 
 ; ### `Not` folding
 
-; One rule implicit in AIGs is `Not` folding. We can define this rule to be replacing
+; One rule implicit in AIGs is `Not` folding.
 
-(bw-rewrite (not (not a)) a)
+(rewrite (Not (Not a)) a :ruleset fold)
 
-; We can propogate constants through `Not`.
+; We can propagate constants through `Not`.
 
-(bw-replace (not (lift b)) (lift (not b)))
+(rewrite (Not (BvAll b w)) (BvAll (not b) w) :ruleset fold)
+(rewrite (Not (B b)) (B (not b)) :ruleset fold)
 
 ; ### Bidirectionality of `Not`
 
-; `Not`/`BvNot` is a bijection with itself as an inverse.
+; `Not` is a bijection with itself as an inverse.
 
 (rule ((= (Not x) y)) ((union x (Not y))) :ruleset fold)
-(rule ((= (BvNot x) y)) ((union x (BvNot y))) :ruleset fold)
 
 ; ### Pushing constant booleans through And
 
 (rule ((= tt (And a b))) ((union tt a) (union tt b)
       (subsume (And a b))) :ruleset fold)
-(rule ((= (BvAll true w) (BvAnd a b)) (= w (Width a)))
-      ((union (BvAnd a b) a) (union (BvAnd a b) b) (subsume (BvAnd a b)))
+(rule ((= (BvAll true w) (And a b)) (= w (Width a)))
+      ((union (And a b) a) (union (And a b) b) (subsume (And a b)))
       :ruleset fold)
 
 ; ### `AIG` simplifications
@@ -62,60 +56,77 @@
 ; Note that we already have commutativity, so we don't have to invert those
 ; patterns.
 
-(bw-replace (and a true) a)
-(bw-replace (and a false) false)
-(bw-replace (and a a) a)
-(bw-replace (and a (not a)) false)
+(rewrite (And a (BvAll true _)) a :replace :ruleset fold)
+(rewrite (And a (B true)) a :replace :ruleset fold)
+
+(rewrite (And a (BvAll false w)) (BvAll false w) :replace :ruleset fold)
+(rewrite (And a (B false)) (B false) :replace :ruleset fold)
+
+(rewrite (And a a) a :replace :ruleset fold)
+(rewrite (And a (Not a)) (BvAll false w) :when ((= w (Width a))) :replace :ruleset fold)
+(rewrite (And a (Not a)) (B false) :replace :ruleset fold)
 
 ; #### O2 rules
 
 ; Contradiction
-(bw-replace (and (and (not a) b) a) false)
-(bw-replace (and (and a b) (not a)) false)
-(bw-replace (and (and a b) (and (not a) c)) false)
+
+(rewrite (And (And (Not a) b) a) (BvAll false w) :when ((= w (Width a))) :replace :ruleset fold)
+(rewrite (And (And (Not a) b) a) (B false) :replace :ruleset fold)
+(rewrite (And (And a b) (Not a)) (BvAll false w) :when ((= w (Width a))) :replace :ruleset fold)
+(rewrite (And (And a b) (Not a)) (B false) :replace :ruleset fold)
+(rewrite (And (And a b) (And (Not a) c)) (BvAll false w) :when ((= w (Width a))) :replace :ruleset fold)
+(rewrite (And (And a b) (And (Not a) c)) (B false) :replace :ruleset fold)
+
 ; Subsumption
-(bw-replace (and (not (and (not a) b)) a) a)
-(bw-replace (and (not (and a b)) (not a)) (not a))
-(bw-replace (and (not (and (not a) b)) (and a c)) (and a c))
-(bw-replace (and (not (and a b)) (and (not a) c)) (and (not a) c))
-; Idempotentence
-(bw-replace (and (and a b) a) (and a b))
-(bw-replace (and (not (and a b)) (not (and a (not b)))) (not a))
+
+(rewrite (And (Not (And (Not a) b)) a) a :replace :ruleset fold)
+(rewrite (And (Not (And a b)) (Not a)) (Not a) :replace :ruleset fold)
+(rewrite (And (Not (And (Not a) b)) (And a c)) (And a c) :replace :ruleset fold)
+(rewrite (And (Not (And a b)) (And (Not a) c)) (And (Not a) c) :replace :ruleset fold)
+
+; Idempotence
+
+(rewrite (And (And a b) a) (And a b) :replace :ruleset fold)
+(rewrite (And (Not (And a b)) (Not (And a (Not b)))) (Not a) :replace :ruleset fold)
 
 ; #### O3 rules
 
-(bw-replace (and (not (and a b)) b) (and (not a) b))
-(bw-replace (and (not (and a b)) (and b c)) (and (not a) (and b c)))
+(rewrite (And (Not (And a b)) b) (And (Not a) b) :replace :ruleset fold)
+(rewrite (And (Not (And a b)) (And b c)) (And (Not a) (And b c)) :replace :ruleset fold)
 
 ; #### O4 rules
 
-(bw-replace (and (and a b) (and a d)) (and (and a b) d) (and (and a d) b))
+(rule ((= e (And (And a b) (And a d))))
+      ((union e (And (And a b) d))
+       (union e (And (And a d) b))
+       (replace (And (And a b) (And a d)) (And (And a b) d) (And (And a d) b)))
+      :ruleset fold)
 
 ; ### Commutativity of `And`
 
-(bw-rewrite (and a b) (and b a))
+(rewrite (And a b) (And b a) :ruleset safe)
 
 ; Commutativity of `Or` is derivable.
 
 ; ### Associativity of `And` and `Or`
 
-(bw-rewrite-unsafe (and (and a b) c) (and a (and b c)))
-(bw-rewrite-unsafe (or (or a b) c) (or a (or b c)))
+(rewrite (And (And a b) c) (And a (And b c)) :ruleset unsafe)
+(rewrite (Or (Or a b) c) (Or a (Or b c)) :ruleset unsafe)
 
 ; ### Distributivity of `And` and `Or`
 
-(bw-birewrite-unsafe (and a (or b c)) (or (and a b) (and a c)))
-(bw-birewrite-unsafe (or a (and b c)) (and (or a b) (or a c)))
+(birewrite (And a (Or b c)) (Or (And a b) (And a c)) :ruleset unsafe)
+(birewrite (Or a (And b c)) (And (Or a b) (Or a c)) :ruleset unsafe)
 
 ; ### Constant folding for bit-vectors
 
-; It is sufficient to implement constant folding rules for `BvAnd` and `BvNot`, as all
+; It is sufficient to implement constant folding rules for `And` and `Not` on bitvectors - all
 ; other bitwise operators are (sometimes non-destructively) lowered to those.
 
-; `BvAnd` rule is fairly straightforward - we don't have any leading 1 bits.
+; `And` rule is fairly straightforward - we don't have any leading 1 bits.
 
-(rewrite (BvAnd (BvConst a w) (BvConst b _)) (BvConst (& a b) w) :subsume :ruleset fold)
+(rewrite (And (BvConst a w) (BvConst b _)) (BvConst (& a b) w) :subsume :ruleset fold)
 
-; `BvNot` rule is implemented with XOR to prevent introduction of leading 1 bits.
+; `Not` rule is implemented with XOR to prevent introduction of leading 1 bits.
 
-(rewrite (BvNot (BvConst a w)) (BvConst (^ (- (<< __1 w) __1) a) w) :subsume :ruleset fold)
+(rewrite (Not (BvConst a w)) (BvConst (^ (- (<< __1 w) __1) a) w) :subsume :ruleset fold)

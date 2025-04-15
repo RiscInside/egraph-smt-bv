@@ -2,12 +2,12 @@
 
 ; ### Constant-folding
 
-(rewrite (BvMul (BvConst a w) (BvConst b _)) (BvConst (% (* a b) (<< __1 w)) w) :subsume :ruleset fold)
+(rewrite (Mul (BvConst a w) (BvConst b _)) (BvConst (% (* a b) (<< __1 w)) w) :subsume :ruleset fold)
 
 ; ### Commutativity
 
-(rewrite (BvMul a b) (BvMul b a) :ruleset safe)
+(rewrite (Mul a b) (Mul b a) :ruleset safe)
 
 ; ### Associativity
 
-(birewrite (BvMul a (BvMul b c)) (BvMul (BvMul a b) c) :ruleset unsafe)
+(birewrite (Mul a (Mul b c)) (Mul (Mul a b) c) :ruleset unsafe)

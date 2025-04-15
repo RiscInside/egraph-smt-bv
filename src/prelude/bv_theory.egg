@@ -12,10 +12,11 @@
 
 ; Rust code lowers variadic `concat` operations to binary `Concat` calls.
 
-; ### Unary bitvector operators
+; ### Unary bitvector negation
 
-(constructor BvNot (V) V)
-(constructor BvNeg (V) V)
+(constructor Neg (V) V)
+
+; Bitwise NOT is already supported by overloading `Not`.
 
 ; ### Binary bitvector operators
 
@@ -24,38 +25,35 @@
 
 ; #### Bitwise logical operators
 
-(constructor BvAnd (V V) V)
-(constructor BvOr (V V) V)
-(constructor BvXor (V V) V)
-(constructor BvNand (V V) V)
-(constructor BvNor (V V) V)
-(constructor BvXNor (V V) V)
+(constructor Nand (V V) V)
+(constructor Nor (V V) V)
+(constructor XNor (V V) V)
 
 ; #### Arithmetic operators
 
-(constructor BvAdd (V V) V)
-(constructor BvSub (V V) V)
-(constructor BvMul (V V) V)
-(constructor BvUDiv (V V) V)
-(constructor BvURem (V V) V)
-(constructor BvSDiv (V V) V)
-(constructor BvSRem (V V) V)
-(constructor BvSMod (V V) V)
+(constructor Add (V V) V)
+(constructor Sub (V V) V)
+(constructor Mul (V V) V)
+(constructor UDiv (V V) V)
+(constructor URem (V V) V)
+(constructor SDiv (V V) V)
+(constructor SRem (V V) V)
+(constructor SMod (V V) V)
 
-(constructor BvShl (V V) V)
-(constructor BvLShr (V V) V)
-(constructor BvAShr (V V) V)
+(constructor Shl (V V) V)
+(constructor LShr (V V) V)
+(constructor AShr (V V) V)
 
 ; ### Comparison predicates
 
-(constructor BvUle (V V) V)
-(constructor BvUlt (V V) V)
-(constructor BvUge (V V) V)
-(constructor BvUgt (V V) V)
-(constructor BvSle (V V) V)
-(constructor BvSlt (V V) V)
-(constructor BvSge (V V) V)
-(constructor BvSgt (V V) V)
+(constructor Ule (V V) V)
+(constructor Ult (V V) V)
+(constructor Uge (V V) V)
+(constructor Ugt (V V) V)
+(constructor Sle (V V) V)
+(constructor Slt (V V) V)
+(constructor Sge (V V) V)
+(constructor Sgt (V V) V)
 
 ; ### Bitvector constants
 
@@ -77,7 +75,7 @@
 ; This is a simple check that every computed `BvConst` is positive. Negative signed values should
 ; be represented as their (positive) twos-complement representation.
 
-(rule ((BvConst a _) (< a __zero)) ((panic "Negative constant detected. This is a constant fold bug")))
+(rule ((BvConst a _) (< a __0)) ((panic "Negative constant detected. This is a constant fold bug")))
 
 ; #### Different constants are not equal.
 
@@ -111,27 +109,27 @@
 (rule ((= e (ZeroExtend n exp)) (= w (Width exp))) ((set (Width e) (+ w n))) :ruleset width)
 (rule ((= e (SignExtend n exp)) (= w (Width exp))) ((set (Width e) (+ w n))) :ruleset width)
 
-(rule ((= e (BvNot e1)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvNeg e1)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Not e1)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Neg e1)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
 
-(rule ((= e (BvAnd e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvOr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvXor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvNand e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvNor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvXNor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (And e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Or e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Xor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Nand e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Nor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (XNor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
 
-(rule ((= e (BvAdd e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvSub e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvMul e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvUDiv e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvURem e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvSDiv e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvSRem e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvSMod e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvShl e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvLShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-(rule ((= e (BvAShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Add e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Sub e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Mul e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (UDiv e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (URem e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (SDiv e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (SRem e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (SMod e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Shl e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (LShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (AShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
 
 (rule ((= e (BvConst v w))) ((set (Width e) w)) :ruleset width)
 (rule ((= e (BvAll b w))) ((set (Width e) w)) :ruleset width)

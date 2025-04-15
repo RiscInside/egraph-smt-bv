@@ -11,16 +11,16 @@
 
 ; ### Pushdown rules for operators
 
-(rewrite (ITE cond (BvNot e1) (BvNot e2)) (BvNot (ITE cond e1 e2)) :ruleset safe)
+(rewrite (ITE cond (Not e1) (Not e2)) (Not (ITE cond e1 e2)) :ruleset safe)
 
-(rewrite (ITE cond (BvAnd e1 e2) (BvAnd e3 e4))
-         (BvAnd (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset safe)
+(rewrite (ITE cond (And e1 e2) (And e3 e4))
+         (And (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset safe)
 
-(rewrite (ITE cond (BvAdd e1 e2) (BvAdd e3 e4))
-         (BvAdd (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset safe)
+(rewrite (ITE cond (Add e1 e2) (Add e3 e4))
+         (Add (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset safe)
 
-(rewrite (ITE cond (BvMul e1 e2) (BvMul e3 e4))
-         (BvMul (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset safe)
+(rewrite (ITE cond (Mul e1 e2) (Mul e3 e4))
+         (Mul (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset safe)
 
 (rewrite (ITE cond (Concat e1 e2) (Concat e3 e4))
          (Concat (ITE cond e1 e3) (ITE cond e2 e4))

@@ -2,13 +2,13 @@
 
 ; ### Division by zero
 
-(rewrite (BvUDiv a (BvConst __0 w)) (BvConst (- (<< __1 w) __1) w) :subsume :ruleset fold)
-(rewrite (BvURem a (BvConst __0 w)) a :subsume :ruleset fold)
+(rewrite (UDiv a (BvConst __0 w)) (BvConst (- (<< __1 w) __1) w) :subsume :ruleset fold)
+(rewrite (URem a (BvConst __0 w)) a :subsume :ruleset fold)
 
 ; ### Constant folding
 
-; `BvUDiv` and `BvURem` are implemented with `/` and `%` as both values are known to be unsigned.
+; `UDiv` and `URem` are implemented with `/` and `%` as both values are known to be unsigned.
 ; We need to check for 0 to respect SMT2LIB semantics.
 
-(rewrite (BvUDiv (BvConst a w) (BvConst b _)) (BvConst (/ a b) w) :when ((!= b __0)) :subsume :ruleset fold)
-(rewrite (BvURem (BvConst a w) (BvConst b _)) (BvConst (% a b) w) :when ((!= b __0)) :subsume :ruleset fold)
+(rewrite (UDiv (BvConst a w) (BvConst b _)) (BvConst (/ a b) w) :when ((!= b __0)) :subsume :ruleset fold)
+(rewrite (URem (BvConst a w) (BvConst b _)) (BvConst (% a b) w) :when ((!= b __0)) :subsume :ruleset fold)

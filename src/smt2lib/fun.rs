@@ -379,9 +379,7 @@ fn vararg_list(args: Vec<Lowered>) -> Expr {
     })
 }
 
-fn egglog_for_indices<'a>(
-    indices: &'a [smt2parser::visitors::Index],
-) -> impl Iterator<Item = Expr> + 'a {
+fn egglog_for_indices(indices: &[smt2parser::visitors::Index]) -> impl Iterator<Item = Expr> + '_ {
     indices.iter().map(|index| match index {
         smt2parser::visitors::Index::Numeral(big_uint) => {
             let smol_int: u32 = big_uint.try_into().unwrap();

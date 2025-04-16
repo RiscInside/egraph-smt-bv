@@ -1,0 +1,48 @@
+name: Rust CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: build, test, clippy, fmt
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download z3 and wget
+      run: |
+        sudo apt update
+        sudo apt install z3 libz3-dev libclang-dev wget -y
+
+    - name: Download yosys build
+      run: |
+        wget https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2025-04-15/oss-cad-suite-linux-x64-20250415.tgz
+        tar -xzf oss-cad-suite-linux-x64-20250415.tgz
+        echo `realpath oss-cad-suite/bin` >> $GITHUB_PATH
+    
+    - name: Verify that yosys is in PATH
+      run: yosys --version
+
+    - name: Set up rust toolchain with clippy and rustfmt
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        components: clippy, rustfmt
+
+    - name: Check out the repo
+      uses: actions/checkout@v4
+    
+    - name: Build the repo
+      run: cargo build --verbose
+
+    - name: Run tests
+      run: cargo test --verbose
+
+    - name: Run rustfmt
+      uses: actions-rust-lang/rustfmt@v1
+    
+    - name: Run clippy
+      run: cargo clippy --verbose --tests -- -D warnings

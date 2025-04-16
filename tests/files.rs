@@ -40,7 +40,7 @@ fn run_unsat_test(path: &Path) {
 fn unsat_tests_from_smt2_files(pattern: &'static str, trials: &mut Vec<Trial>) {
     for path in glob(pattern).unwrap().map(Result::unwrap) {
         trials.push(Trial::test(
-            path.file_stem().unwrap().display().to_string(),
+            path.file_stem().unwrap().to_str().unwrap().to_owned(),
             move || {
                 run_unsat_test(&path);
                 Ok(())
@@ -75,6 +75,7 @@ fn run_yosys_scripts(pattern: &'static str) {
 
         let result = Exec::cmd(&yosys)
             .arg(yosys_script_path.to_string_lossy().as_ref())
+            .args(&["-f", "script"])
             .capture()
             .unwrap();
 

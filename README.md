@@ -1,15 +1,19 @@
 # `egraph-smt-bv`
 
-Using [egglog](https://github.com/egraphs-good/egglog) to solve SMT bitvector problems. See examples of what's currently tackleable in [solvable](./solvable/) (spoiler alert: currently not much).
+Using [egglog](https://github.com/egraphs-good/egglog) to solve (UNSAT) SMT problems in theory of FixedSizeBitVectors.
 
-Run with
+See SMT2LIB examples of some tacklable problems in [tests/unsat](./tests/unsat).
+
+With the help of [yosys](https://github.com/YosysHQ/yosys), `egraph-smt-bv` can be used to verify equivalence of two designs. See examples of verilog designs from [RTLRewriter-Bench](https://github.com/yaoxufeng/RTLRewriter-Bench) that we can prove equivalence of in [tests/verilog](./tests/verilog).
+
+## Usage
+
+`egraph-smt-bv` tries to behave like a spec-compliant SMT2LIB solver, though in practice support for various commands/options is lacking. You can run an SMT2LIB file with:
 
 ```
-cargo run ./solvable/add_four_two_ways.unsat.smt2 -e add_four_two_ways.out.egg -m add_four_two_ways.out.md
+cargo run <path.smt2>
 ```
 
-`-e add_four_two_ways.out.egg` dumps solver's execution history as runnable egglog code to `add_four_two_ways.out.egg`. You can run this code directly with `egglog` or copy it to [the browser playground](https://egraphs-good.github.io/egglog/).
+The only command currently producing output is `(check-sat)`, which will either return `unsat` or `unknown`.
 
-`-m add_four_two_ways.out.md` dumps solver's execution history to `add_four_two_ways.out.md`.
-
-In both cases output is updated on the go so that it's easier to see where we get stuck.
+Only core and bitvector theories are supported.

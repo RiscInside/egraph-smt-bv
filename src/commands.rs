@@ -201,7 +201,7 @@ impl Context {
             let mut params_exprs = vec![];
 
             for (param_name, param_sort) in &sig.parameters {
-                let param_sort = local_ctx.global.parse_sort(&param_sort)?;
+                let param_sort = local_ctx.global.parse_sort(param_sort)?;
                 param_sorts.push(param_sort);
 
                 let im_rc::hashmap::Entry::Vacant(vacant_entry) =
@@ -246,7 +246,7 @@ impl Context {
                 } else {
                     Change::Delete
                 },
-                Symbol::new(sig.name.0.to_owned()),
+                Symbol::new(&sig.name.0),
                 params_exprs.clone(),
             ));
             let enode_expr = egglog::ast::call!(&sig.name.0, params_exprs);
@@ -284,7 +284,7 @@ impl Context {
         sort: &concrete::Sort,
     ) -> anyhow::Result<()> {
         let context = self.smt2lib_context_mut();
-        if parameters.len() != 0 {
+        if !parameters.is_empty() {
             bail!("Parametric type synonyms aren't supported")
         }
         let rhs_sort = context.parse_sort(sort)?;
@@ -311,7 +311,7 @@ impl Context {
                 symbol,
                 parameters,
                 sort,
-            } => self.declare_fun(&symbol.0, &parameters, sort),
+            } => self.declare_fun(&symbol.0, parameters, sort),
             DeclareSort { .. } => bail!("User-declared sorts aren't supported"),
             DefineFun { sig, term } => self.define_fun(sig, term),
             DefineFunRec { .. } | DefineFunsRec { .. } => {
@@ -335,7 +335,7 @@ impl Context {
             GetProof => bail!("get-proof isn't supported"),
             GetUnsatAssumptions => bail!("get-unsat-assumptions isn't supported"),
             GetUnsatCore => bail!("get-unsat-core isn't supported"),
-            GetValue { terms } => self.get_value(&terms),
+            GetValue { terms } => self.get_value(terms),
             Pop { .. } | Push { .. } => bail!("push/pop aren't supported"),
             Reset => bail!("reset isn't supported"),
             ResetAssertions => bail!("reset-assertions isn't supported"),

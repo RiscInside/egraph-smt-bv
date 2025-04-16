@@ -183,7 +183,7 @@ impl LocalContext<'_> {
             concrete::Term::Application {
                 qual_identifier,
                 arguments,
-            } => self.lower_id_or_app(qual_identifier, &arguments),
+            } => self.lower_id_or_app(qual_identifier, arguments),
             concrete::Term::Let { var_bindings, term } => self.lower_let(var_bindings, term),
             concrete::Term::Forall { .. } | concrete::Term::Exists { .. } => {
                 bail!("Quantifiers aren't supported by the solver")

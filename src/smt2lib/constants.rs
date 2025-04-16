@@ -15,7 +15,7 @@ lazy_static! {
 }
 
 fn digits_to_biguint(digits: impl Iterator<Item = u8>, radix: u8) -> Numeral {
-    let mut res = Numeral::from(0 as u32);
+    let mut res = Numeral::from(0_u32);
     for digit in digits {
         res *= radix;
         res += digit;
@@ -77,7 +77,7 @@ impl LocalContext<'_> {
         let (_, [value_as_string]) = captures.extract();
         let value = call!(
             "from-string",
-            [lit!(egglog::ast::Symbol::new(format!("{value_as_string}")))]
+            [lit!(egglog::ast::Symbol::new(value_as_string))]
         );
 
         let width = NonZeroU32::try_from(

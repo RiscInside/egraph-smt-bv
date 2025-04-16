@@ -29,7 +29,7 @@ lazy_static! {
 impl Context {
     pub fn run_prelude(&mut self) -> anyhow::Result<()> {
         self.text("## Prelude definitions")?;
-        self.run_log(&*&PRELUDE).unwrap();
+        self.run_log(&PRELUDE).unwrap();
 
         self.newline()?;
         self.text("## Solving log")?;

@@ -24,7 +24,7 @@ impl Context {
             "=".to_owned() => Def::simple(EqualOrDistinct, Lowering::variadic("AllEqual")),
             "distinct".to_owned() => Def::simple(EqualOrDistinct, Lowering::variadic("AllDistinct")),
 
-            "ite".to_owned() => Def::simple(ITE, Lowering::direct("ITE")),
+            "ite".to_owned() => Def::simple(Ite, Lowering::direct("ITE")),
 
             "concat".to_owned() => Def::simple(Concat, Lowering::left_associative("Concat")),
 

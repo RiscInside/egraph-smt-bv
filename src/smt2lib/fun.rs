@@ -40,7 +40,7 @@ pub(crate) enum FunctionSortCheckSpec {
     Extension,
     /// If-then-else. First parameter is a boolean, next two parameters are
     /// values of the same sort, resulting sort is the same as both arguments
-    ITE,
+    Ite,
     /// Comparison of n values, all of the same/different sorts
     EqualOrDistinct,
 }
@@ -205,7 +205,7 @@ impl Display for ArgNo {
     }
 }
 
-fn expect_bitvector<'a>(name: &str, argno: usize, arg: &Lowered) -> anyhow::Result<NonZeroU32> {
+fn expect_bitvector(name: &str, argno: usize, arg: &Lowered) -> anyhow::Result<NonZeroU32> {
     match arg.sort {
         Sort::BitVec(width) => Ok(width),
         _ => bail!(
@@ -216,7 +216,7 @@ fn expect_bitvector<'a>(name: &str, argno: usize, arg: &Lowered) -> anyhow::Resu
     }
 }
 
-fn expect_sort<'a>(name: &str, argno: usize, arg: &Lowered, sort: Sort) -> anyhow::Result<()> {
+fn expect_sort(name: &str, argno: usize, arg: &Lowered, sort: Sort) -> anyhow::Result<()> {
     if arg.sort != sort {
         bail!(
             "Expected a term of sort {sort} for {} argument of {name} (got {} instead)",
@@ -341,7 +341,7 @@ pub(crate) fn check_application(
                     .context("Extended bitvector is too big")?,
             ))
         }
-        FunctionSortCheckSpec::ITE => {
+        FunctionSortCheckSpec::Ite => {
             let (cond, e1, e2) = expect_three_args(name, args)?;
             expect_sort(name, 0, cond, Sort::Bool)?;
             expect_sort(name, 2, e2, e1.sort)?;

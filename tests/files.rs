@@ -37,7 +37,7 @@ fn run_unsat_test(path: &Path) {
 }
 
 fn unsat_tests_from_smt2_files(pattern: &'static str, trials: &mut Vec<Trial>) {
-    for path in glob(pattern).unwrap().into_iter().map(Result::unwrap) {
+    for path in glob(pattern).unwrap().map(Result::unwrap) {
         trials.push(Trial::test(
             path.file_stem().unwrap().display().to_string(),
             move || {

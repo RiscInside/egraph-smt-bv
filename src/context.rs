@@ -1,9 +1,8 @@
-//// Context keeps track of all the solver's state. Namely, this includes
-////
-//// - EGraph with all the terms
-//// - Sinks to send all the steps to (markdown, egglog, etc)
-//// - All SMT2LIB functions that are in scope, along with their types
-
+/// Context keeps track of all the solver's state. Namely, this includes
+///
+/// - EGraph with all the terms
+/// - Sinks to send all the steps to (markdown, egglog, etc)
+/// - All SMT2LIB functions that are in scope, along with their types
 use crate::{
     log::{
         eggloglog, markdown,
@@ -45,7 +44,7 @@ impl Context {
         source: &str,
         commands: Vec<egglog::ast::Command>,
     ) -> anyhow::Result<()> {
-        self.sinks.egglog_code_pre_exec(&source)?;
+        self.sinks.egglog_code_pre_exec(source)?;
         match self.egraph.run_program(commands) {
             Ok(_) => {}
             Err(error) => bail!("Failed to run egglog code: {error:?}"),
@@ -72,13 +71,13 @@ impl Context {
 impl Context {
     pub fn new() -> Context {
         let egraph = EGraph::default();
-        return Context {
+        Context {
             egraph,
             sinks: LogSink::new(),
             smt2contexts: vec![smt2lib::Context::new()],
             asserts_so_far: 0,
             keep_functions: false,
-        };
+        }
     }
 
     pub fn keep_functions(&mut self) {
@@ -127,5 +126,11 @@ impl Context {
 
     pub fn serialize(&self, config: egglog::SerializeConfig) -> egraph_serialize::EGraph {
         self.egraph.serialize(config)
+    }
+}
+
+impl Default for Context {
+    fn default() -> Self {
+        Self::new()
     }
 }

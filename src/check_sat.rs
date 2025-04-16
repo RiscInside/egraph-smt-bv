@@ -14,8 +14,8 @@ lazy_static! {
 
 impl Context {
     pub(crate) fn check_sat(&mut self) -> anyhow::Result<()> {
-        self.run_log(&*CHECK_SAT)?;
-        let (_, value) = self.egraph.eval_expr(&*&PROVEN_UNSAT).unwrap();
+        self.run_log(&CHECK_SAT)?;
+        let (_, value) = self.egraph.eval_expr(&PROVEN_UNSAT).unwrap();
         assert!(
             value.bits < 2,
             "bool sort only allows for true and false values"

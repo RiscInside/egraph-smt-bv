@@ -1,8 +1,9 @@
-/// Context keeps track of all the solver's state. Namely, this includes
-///
-/// - EGraph with all the terms
-/// - Sinks to send all the steps to (markdown, egglog, etc)
-/// - All SMT2LIB functions that are in scope, along with their types
+//! Context keeps track of all the solver's state. Namely, this includes
+//!
+//! - EGraph with all the terms
+//! - Sinks to send all the steps to (markdown, egglog, etc)
+//! - All SMT2LIB functions that are in scope, along with their types
+
 use crate::{
     log::{
         eggloglog, markdown,

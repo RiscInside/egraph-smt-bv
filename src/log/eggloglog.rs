@@ -1,8 +1,8 @@
-//// Egglog logger stashes all inferences in the egglog file. This is usually
-//// quite easy to do as all inference actions are mostly done within egglog
-//// anyway. Solver can also recover from egglog log by rerunnning all commands
-//// in the file. This potentially allows user to make tweaks to unblock
-//// inferences.
+//! Egglog logger stashes all inferences in the egglog file. This is usually
+//! quite easy to do as all inference actions are mostly done within egglog
+//! anyway. Solver can also recover from egglog log by rerunnning all commands
+//! in the file. This potentially allows user to make tweaks to unblock
+//! inferences.
 
 use super::output::LogStream;
 use itertools::Itertools;
@@ -25,7 +25,7 @@ impl EgglogLogStream {
 impl LogStream for EgglogLogStream {
     fn egglog_code_pre_exec(&mut self, source: &str) -> anyhow::Result<()> {
         self.trailing_newline = false;
-        write!(self.writer, "{source}\n")?;
+        writeln!(self.writer, "{source}")?;
         self.writer.flush()?;
         Ok(())
     }
@@ -36,9 +36,9 @@ impl LogStream for EgglogLogStream {
 
     fn add_text(&mut self, text: &str) -> anyhow::Result<()> {
         self.trailing_newline = false;
-        write!(
+        writeln!(
             self.writer,
-            "{}\n",
+            "{}",
             text.split('\n')
                 .map(|x| if x.trim().is_empty() {
                     ";".to_owned()
@@ -52,7 +52,7 @@ impl LogStream for EgglogLogStream {
 
     fn newline(&mut self) -> anyhow::Result<()> {
         if !self.trailing_newline {
-            write!(self.writer, "\n")?;
+            writeln!(self.writer)?;
             self.trailing_newline = true;
         }
         Ok(())

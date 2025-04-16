@@ -1,8 +1,8 @@
-//// Markdown log stream implementation. While we can't recover changes from
-//// markdown files, they provide an alternative way to display solver's
-//// inference history in a human-readable manner. They can also be used to
-//// watch solver's progress live in editors like VSCode - markdown log stream
-//// will flush output before executing any egglog code.
+//! Markdown log stream implementation. While we can't recover changes from
+//! markdown files, they provide an alternative way to display solver's
+//! inference history in a human-readable manner. They can also be used to
+//! watch solver's progress live in editors like VSCode - markdown log stream
+//! will flush output before executing any egglog code.
 
 use super::output::LogStream;
 use std::io::{Seek, Write};
@@ -27,9 +27,9 @@ impl MarkdownLogStream {
             self.file
                 .seek(std::io::SeekFrom::Start(self.backticks_pos.unwrap()))?;
             self.file.get_mut().set_len(backticks_pos)?;
-            write!(self.file, "\n")?;
+            writeln!(self.file)?;
         } else {
-            write!(self.file, "```egg\n")?;
+            writeln!(self.file, "```egg")?;
         }
         Ok(())
     }
@@ -39,7 +39,7 @@ impl LogStream for MarkdownLogStream {
     fn egglog_code_pre_exec(&mut self, source: &str) -> anyhow::Result<()> {
         self.trailing_newline = false;
         self.open_code_block()?;
-        write!(self.file, "{source}\n")?;
+        writeln!(self.file, "{source}")?;
         self.backticks_pos = Some(self.file.stream_position()?);
         write!(self.file, "```\nExecution in progress ↺\n")?;
         self.file.flush()?;
@@ -50,20 +50,20 @@ impl LogStream for MarkdownLogStream {
         self.file
             .seek(std::io::SeekFrom::Start(self.backticks_pos.unwrap()))?;
         self.file.get_mut().set_len(self.backticks_pos.unwrap())?;
-        write!(self.file, "```\n")?;
+        writeln!(self.file, "```")?;
         Ok(())
     }
 
     fn add_text(&mut self, text: &str) -> anyhow::Result<()> {
         self.backticks_pos = None;
         self.trailing_newline = false;
-        write!(self.file, "{text}\n")?;
+        writeln!(self.file, "{text}")?;
         Ok(())
     }
 
     fn newline(&mut self) -> anyhow::Result<()> {
         if !self.trailing_newline {
-            write!(self.file, "\n")?;
+            writeln!(self.file)?;
             self.trailing_newline = true;
         }
         Ok(())

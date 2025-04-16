@@ -1,5 +1,5 @@
-//// Logging infrastructure. Logger produces runnable egglog code that user can
-//// modify in any way they wish
+//! Logging infrastructure. Logger produces runnable egglog code that user can
+//! modify in any way they wish
 
 pub(crate) mod eggloglog;
 pub(crate) mod macros;
@@ -73,11 +73,8 @@ impl Log {
     }
 
     pub(crate) fn newline(&mut self) {
-        match self.items.last_mut() {
-            Some((_, b)) => {
-                *b = true;
-            }
-            None => {}
+        if let Some((_, b)) = self.items.last_mut() {
+            *b = true;
         }
     }
 

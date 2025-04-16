@@ -1,4 +1,5 @@
-/// `smt2lib` - SMT2LIB to egglog lowering code
+//! `smt2lib` - SMT2LIB to egglog lowering code
+
 use im_rc::HashMap;
 
 pub(crate) mod constants;

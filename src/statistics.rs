@@ -1,10 +1,8 @@
-use std::time::Duration;
-
+use crate::context::Context;
 use anyhow::bail;
 use egglog::{ast::Symbol, util::IndexMap, RunReport};
 use itertools::Itertools;
-
-use crate::context::Context;
+use std::time::Duration;
 
 fn format_rule_name(given: &str) -> String {
     given

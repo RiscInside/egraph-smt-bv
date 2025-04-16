@@ -1,4 +1,5 @@
-//// Various log book preprocessing passes/analysis
+//! Various log book preprocessing passes/analysis
+
 use super::Log;
 
 impl Log {

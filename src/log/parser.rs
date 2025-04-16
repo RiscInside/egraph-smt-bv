@@ -14,13 +14,8 @@ impl Log {
         for line in source.split('\n') {
             if line.trim().is_empty() {
                 log.newline();
-            } else if line.starts_with(";") {
-                let mut line = &line[1..];
-                // Peel off the space
-                if line.starts_with(" ") {
-                    line = &line[1..];
-                }
-                log.add_text_line(line);
+            } else if let Some(stripped) = line.strip_prefix(";") {
+                log.add_text_line(stripped.strip_prefix(" ").unwrap_or(stripped));
             } else {
                 log.add_egglog_line(line);
             }

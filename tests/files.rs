@@ -63,9 +63,12 @@ fn run_yosys_scripts(pattern: &'static str) {
     }
 
     let Ok(yosys) = which::which("yosys") else {
-        eprintln!("`yosys` not found - no hardware tests will be generated");
+        eprintln!("Yosys binary not found - no hardware tests will be generated");
         return;
     };
+
+    let yosys = yosys.canonicalize().unwrap();
+    eprintln!("Using yosys at `{}`", yosys.display());
 
     let mut launched_yosys_processes = vec![];
     for yosys_script_path in glob(pattern).unwrap().map(Result::unwrap) {
@@ -75,14 +78,15 @@ fn run_yosys_scripts(pattern: &'static str) {
         }
 
         eprintln!(
-            "generating SMT2LIB file `{}` from yosys script `{}`",
+            "Generating SMT2LIB file `{}` from yosys script `{}`",
             expected_output.display(),
             yosys_script_path.display()
         );
 
         launched_yosys_processes.push((
             Command::new(&yosys)
-                .arg(yosys_script_path.to_string_lossy().as_ref())
+                .current_dir(yosys_script_path.canonicalize().unwrap().parent().unwrap())
+                .arg(yosys_script_path.file_name().unwrap().to_str().unwrap())
                 .args(["-f", "script"])
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -117,9 +121,9 @@ fn run_yosys_scripts(pattern: &'static str) {
 
 pub fn main() {
     // Generate all smt2lib problems we can from yosys scripts
-    run_yosys_scripts("../**/*.ys-test");
+    run_yosys_scripts("**/*.ys-test");
     // Create trials from smt2lib files
     let mut tests = vec![];
-    unsat_tests_from_smt2_files("../**/*.unsat*.smt2", &mut tests);
+    unsat_tests_from_smt2_files("**/*.unsat*.smt2", &mut tests);
     run(&Arguments::from_args(), tests).exit_if_failed();
 }

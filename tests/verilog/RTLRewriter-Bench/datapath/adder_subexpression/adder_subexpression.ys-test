@@ -1,0 +1,13 @@
+read_verilog optimized.v
+read_verilog unoptimized.v
+read_verilog ours.v
+read_verilog claude3_attempt.v
+read_verilog gpt4_attempt.v
+hierarchy
+memory
+proc
+miter -equiv -make_assert optimized unoptimized miter1
+miter -equiv -make_assert optimized ours miter2
+miter -equiv -make_assert optimized gpt4_attempt miter3
+miter -equiv -make_assert optimized claude3_attempt miter4
+write_smt2 -tpl ../../../four_miters.tpl -stbv adder_subexpression.generated.unsat.smt2

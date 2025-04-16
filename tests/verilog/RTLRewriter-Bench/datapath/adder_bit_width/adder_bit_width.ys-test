@@ -1,0 +1,11 @@
+read_verilog unoptimized.v
+read_verilog reduced_bitwidth.v
+read_verilog no_register.v
+read_verilog gpt4_attempt.v
+hierarchy
+memory
+proc
+miter -equiv -make_assert unoptimized reduced_bitwidth miter1
+miter -equiv -make_assert unoptimized no_register miter2
+miter -equiv -make_assert unoptimized gpt4_attempt miter3
+write_smt2 -tpl ../../../three_miters.tpl -stbv adder_bit_width.generated.unsat.smt2

@@ -1,7 +1,0 @@
-read_verilog tests/verilog/algebraic_simplification/optimized.v
-read_verilog tests/verilog/algebraic_simplification/unoptimized.v
-hierarchy
-memory
-proc
-miter -equiv -make_assert optimized unoptimized miter
-write_smt2 -tpl tests/verilog/one_miter.tpl -stbv tests/verilog/algebraic_simplification/algebraic_simplification.generated.unsat.smt2

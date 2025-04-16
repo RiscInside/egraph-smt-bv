@@ -1,5 +1,7 @@
 read_verilog optimized.v
 read_verilog unoptimized.v
 hierarchy
+memory
+proc
 miter -equiv -make_assert optimized unoptimized miter
-write_smt2 -tpl ../one_miter.tpl -stbv even_more_basic.generated.unsat.smt2
+write_smt2 -tpl ../../../one_miter.tpl -stbv basic.generated.unsat.smt2

@@ -94,10 +94,10 @@
 
 ; ### Pushing down equality of `AddC` and `Neg`
 
-(rewrite (Equal (Add x y) (Add y z)) (Equal x z) :replace :ruleset fold)
-(rewrite (Equal (Add x y) (Add x z)) (Equal y z) :replace :ruleset fold)
-(rewrite (Equal (AddC x v) (AddC y v)) (Equal x y) :replace :ruleset fold)
-(rewrite (Equal (Neg x) (Neg y)) (Equal x y) :replace :ruleset fold)
+(rewrite (Equal (Add x y) (Add y z)) (Equal x z) :ruleset fold)
+(rewrite (Equal (Add x y) (Add x z)) (Equal y z) :ruleset fold)
+(rewrite (Equal (AddC x v) (AddC y v)) (Equal x y) :ruleset fold)
+(rewrite (Equal (Neg x) (Neg y)) (Equal x y) :ruleset fold)
 
 ; ### Combining zero-extensions
 

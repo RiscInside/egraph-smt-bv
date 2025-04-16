@@ -1,5 +1,5 @@
-read_verilog verilog_examples/even_more_basic/optimized.v
-read_verilog verilog_examples/even_more_basic/unoptimized.v
+read_verilog tests/verilog/even_more_basic/optimized.v
+read_verilog tests/verilog/even_more_basic/unoptimized.v
 hierarchy
 miter -equiv -make_assert optimized unoptimized miter
-write_smt2 -tpl verilog_examples/combinatorial.tpl -stbv verilog_examples/even_more_basic/even_more_basic.generated.unsat.smt2
+write_smt2 -tpl tests/verilog/combinatorial.tpl -stbv tests/verilog/even_more_basic/even_more_basic.generated.unsat.smt2

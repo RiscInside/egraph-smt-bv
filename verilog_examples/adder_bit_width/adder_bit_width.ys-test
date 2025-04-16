@@ -8,4 +8,4 @@ proc
 miter -equiv -make_assert unoptimized reduced_bitwidth miter1
 miter -equiv -make_assert unoptimized no_register miter2
 miter -equiv -make_assert unoptimized gpt4_attempt miter3
-write_smt2 -tpl verilog_examples/adder_bit_width/adder_bit_width.tpl -stbv verilog_examples/adder_bit_width/adder_bit_width.smt2
+write_smt2 -tpl verilog_examples/adder_bit_width/adder_bit_width.tpl -stbv verilog_examples/adder_bit_width/adder_bit_width.generated.unsat.smt2

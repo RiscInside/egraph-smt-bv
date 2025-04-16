@@ -24,3 +24,5 @@ z3 = "0.12.1"
 [dev-dependencies]
 glob = "0.3.2"
 libtest-mimic = "0.8.1"
+subprocess = "0.2.9"
+which = "7.0.3"

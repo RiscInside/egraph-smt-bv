@@ -1,13 +1,54 @@
 ; <summary>mul.egg - multiplication rules</summary>
 
-; ### Constant-folding
+; ### `MulC`
 
-(rewrite (Mul (BvConst a w) (BvConst b _)) (BvConst (% (* a b) (<< __1 w)) w) :subsume :ruleset fold)
+; `MulC`, akin to `AddC`, used to do rewrites against constant multiplications
+(constructor MulC (V BigInt) V)
+
+(rule ((= e (MulC e1 _)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+
+(rewrite (Mul e (BvConst v _ )) (MulC e v) :subsume :ruleset fold)
+(rewrite (Mul (BvConst v _ ) e) (MulC e v) :subsume :ruleset fold)
+
+; Multiplying by 0 returns 0
+(rewrite (MulC e __0) (BvConst __0 w) :subsume :ruleset fold :when ((= w (Width e))))
+
+; Multiplying by 1 does nothing
+(rewrite (MulC e __1) e :subsume :ruleset fold)
+
+; Multiplying by -1 is negation
+(rewrite (MulC e n1) (Neg e) :when ((= (- (<< __1 (Width e)) __1) n1)) :ruleset safe)
+(rewrite (Neg e) (MulC e (- (<< __1 w) __1)) :when ((= w (Width e))) :ruleset safe)
+
+; Multiplying by 2 is the same as adding twice
+(birewrite (MulC e __2) (Add e e) :ruleset fold)
+
+; We can collapse multiple `MulC`s together
+(rewrite (MulC (MulC x p) q) (MulC x (% (* p q) (<< __1 w))) :when ((= w (Width x))) :subsume :ruleset fold)
+(rewrite (MulC (Neg x) v) (MulC x (- (<< __1 w) v)) :when ((= w (Width x))) :subsume :ruleset fold)
+
+; We can add `x*a` and x together
+(rewrite (Add (MulC x a) x) (MulC x (% (+ a __1) (<< __1 w))) :when ((= w (Width x))) :ruleset fold)
+
+; We can add two MulC for the same value together
+(rewrite (Add (MulC x a) (MulC x b)) (MulC x (% (+ a b) (<< __1 w))) :when ((= w (Width x))) :ruleset fold)
+
+; `MulC` can travel through `Add`
+(rewrite (MulC (Add x y) a) (Add (MulC x a) (MulC y a)) :ruleset safe)
+
+; ### Constant-folding
+(rewrite (MulC (BvConst a w) b) (BvConst (% (* a b) (<< __1 w)) w) :subsume :ruleset fold)
 
 ; ### Commutativity
-
 (rewrite (Mul a b) (Mul b a) :ruleset safe)
 
 ; ### Associativity
-
 (birewrite (Mul a (Mul b c)) (Mul (Mul a b) c) :ruleset unsafe)
+
+; ### Distributivity
+(birewrite (Mul a (Add b c)) (Add (Mul a b) (Mul a c)) :ruleset unsafe)
+
+; ### Pushing negations upwards
+(rewrite (Mul (Neg a) b) (Neg (Mul a b)) :ruleset safe)
+(rewrite (Mul a (Neg b)) (Neg (Mul a b)) :ruleset safe)
+(rewrite (Mul (Neg a) (Neg b)) (Mul a b) :ruleset fold)

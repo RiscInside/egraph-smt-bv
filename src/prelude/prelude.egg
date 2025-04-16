@@ -7,6 +7,7 @@
 
 (let __0 (from-string "0"))
 (let __1 (from-string "1"))
+(let __2 (from-string "2"))
 
 ; ### Values (`V`)
 ; `V` defines all SMT2LIB values. We choose to make values untyped as that

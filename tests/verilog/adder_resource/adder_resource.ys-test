@@ -4,4 +4,4 @@ hierarchy
 memory
 proc
 miter -equiv -make_assert optimized unoptimized miter
-write_smt2 -tpl tests/verilog/combinatorial.tpl -stbv tests/verilog/adder_resource/adder_resource.generated.unsat.smt2
+write_smt2 -tpl tests/verilog/one_miter.tpl -stbv tests/verilog/adder_resource/adder_resource.generated.unsat.smt2

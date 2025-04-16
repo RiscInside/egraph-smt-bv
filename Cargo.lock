@@ -174,6 +174,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
+name = "cap"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f125eb85b84a24c36b02ed1d22c9dd8632f53b3cde6e4d23512f94021030003"
+
+[[package]]
 name = "cexpr"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -368,6 +374,7 @@ name = "egraph-smt-bv"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cap",
  "clap 4.5.20",
  "egglog",
  "egraph-serialize",
@@ -379,7 +386,6 @@ dependencies = [
  "num-bigint 0.4.6",
  "regex",
  "smt2parser",
- "subprocess",
  "tinybitset",
  "which",
  "z3",
@@ -1307,16 +1313,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "subprocess"
-version = "0.2.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c2e86926081dda636c546d8c5e641661049d7562a68f5488be4a1f7f66f6086"
-dependencies = [
- "libc",
- "winapi",
 ]
 
 [[package]]

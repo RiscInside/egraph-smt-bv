@@ -1,11 +1,17 @@
 use anyhow::{bail, Result};
+use cap::Cap;
 use egraph_smt_bv::{Context, LogStream, SATStatus};
 use glob::glob;
 use libtest_mimic::{run, Arguments, Trial};
-use std::path::{Path, PathBuf};
-use subprocess::Exec;
-
+use std::{
+    alloc,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+};
 struct AssertExactStatus(SATStatus);
+
+#[global_allocator]
+static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, 1024 * 1024 * 1024);
 
 impl LogStream for AssertExactStatus {
     fn check_sat_status(&mut self, status: SATStatus) -> anyhow::Result<()> {
@@ -57,10 +63,11 @@ fn run_yosys_scripts(pattern: &'static str) {
     }
 
     let Ok(yosys) = which::which("yosys") else {
-        eprintln!("`yosys` not foud - no hardware tests will be generated");
+        eprintln!("`yosys` not found - no hardware tests will be generated");
         return;
     };
 
+    let mut launched_yosys_processes = vec![];
     for yosys_script_path in glob(pattern).unwrap().map(Result::unwrap) {
         let expected_output = expected_smt2_filename(&yosys_script_path);
         if expected_output.exists() {
@@ -73,20 +80,33 @@ fn run_yosys_scripts(pattern: &'static str) {
             yosys_script_path.display()
         );
 
-        let result = Exec::cmd(&yosys)
-            .arg(yosys_script_path.to_string_lossy().as_ref())
-            .args(&["-f", "script"])
-            .capture()
-            .unwrap();
+        launched_yosys_processes.push((
+            Command::new(&yosys)
+                .arg(yosys_script_path.to_string_lossy().as_ref())
+                .args(["-f", "script"])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .unwrap(),
+            yosys_script_path,
+            expected_output,
+        ));
+    }
 
-        if !result.success() {
-            eprintln!("failed to run yosys on `{}`", yosys_script_path.display());
+    for (yosys_process, yosys_script_path, expected_output) in launched_yosys_processes {
+        let result = yosys_process.wait_with_output().unwrap();
+        if !result.status.success() {
+            eprintln!(
+                "Failed to run yosys on `{}`. Yosys stderr:\n{}",
+                yosys_script_path.display(),
+                String::from_utf8_lossy(&result.stderr)
+            );
             std::process::exit(1);
         }
 
         if !expected_output.exists() {
             eprintln!(
-                "yosys script `{}` did not produce required file `{}`",
+                "Yosys script `{}` did not produce required file `{}`",
                 yosys_script_path.display(),
                 expected_output.display()
             );

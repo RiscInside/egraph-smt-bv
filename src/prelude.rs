@@ -27,7 +27,7 @@ lazy_static! {
 }
 
 impl Context {
-    pub(crate) fn run_prelude(&mut self) -> anyhow::Result<()> {
+    pub fn run_prelude(&mut self) -> anyhow::Result<()> {
         self.text("## Prelude definitions")?;
         self.run_log(&*&PRELUDE).unwrap();
 

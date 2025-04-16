@@ -3,6 +3,10 @@ name = "egraph-smt-bv"
 version = "0.1.0"
 edition = "2021"
 
+[[test]]
+name = "files"
+harness = false
+
 [dependencies]
 anyhow = "1.0.93"
 clap = { version = "4.5.20", features = ["derive"] }
@@ -16,3 +20,7 @@ regex = "1.11.1"
 smt2parser = "0.6.1"
 tinybitset = "0.0.2"
 z3 = "0.12.1"
+
+[dev-dependencies]
+glob = "0.3.2"
+libtest-mimic = "0.8.1"

@@ -1,15 +1,7 @@
-pub(crate) mod check_sat;
-pub(crate) mod commands;
-pub(crate) mod context;
-pub(crate) mod log;
-pub(crate) mod prelude;
-pub(crate) mod smt2lib;
-pub(crate) mod statistics;
-
 use anyhow::bail;
 use clap::Parser;
-use context::Context;
 use egglog::SerializeConfig;
+use egraph_smt_bv::Context;
 
 #[derive(Parser)]
 struct Args {
@@ -30,7 +22,9 @@ struct Args {
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    let mut ctx: Context = context::Context::new();
+    let mut ctx: Context = Context::new();
+
+    ctx.print_results_to_stdout();
 
     if args.keep_functions {
         ctx.keep_functions();
@@ -57,7 +51,7 @@ fn main() -> anyhow::Result<()> {
 
     for command in stream {
         match command {
-            Ok(cmd) => ctx.handle_smt2lib_command(&cmd)?,
+            Ok(cmd) => ctx.run_smt2lib_command(&cmd)?,
             Err(
                 smt2parser::Error::SyntaxError(pos, msg)
                 | smt2parser::Error::ParsingError(pos, msg),
@@ -72,7 +66,7 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    let serialized = ctx.egraph.serialize(SerializeConfig::default());
+    let serialized = ctx.serialize(SerializeConfig::default());
 
     if let Some(json_egraph_path) = args.json_egraph_path {
         serialized.to_json_file(json_egraph_path)?;

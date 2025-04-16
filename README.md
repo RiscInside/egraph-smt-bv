@@ -5,7 +5,7 @@ Using [egglog](https://github.com/egraphs-good/egglog) to solve SMT bitvector pr
 Run with
 
 ```
-cargo run ./solvable/add_four_two_ways.smt2 -e add_four_two_ways.out.egg -m add_four_two_ways.out.md
+cargo run ./solvable/add_four_two_ways.unsat.smt2 -e add_four_two_ways.out.egg -m add_four_two_ways.out.md
 ```
 
 `-e add_four_two_ways.out.egg` dumps solver's execution history as runnable egglog code to `add_four_two_ways.out.egg`. You can run this code directly with `egglog` or copy it to [the browser playground](https://egraphs-good.github.io/egglog/).

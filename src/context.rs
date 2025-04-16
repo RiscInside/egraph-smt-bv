@@ -11,13 +11,14 @@ use crate::{
         Log, LogItem,
     },
     smt2lib,
+    status::SATStatus,
 };
 use anyhow::{bail, Context as _};
 use egglog::EGraph;
 use itertools::Itertools;
 
 /// Context representing the problem we are trying to solve
-pub(crate) struct Context {
+pub struct Context {
     /// EGraph with the problem description
     pub(crate) egraph: EGraph,
     /// Log sink with all the outputs
@@ -31,48 +32,12 @@ pub(crate) struct Context {
 }
 
 impl Context {
-    pub(crate) fn new() -> Context {
-        let egraph = EGraph::default();
-        return Context {
-            egraph,
-            sinks: LogSink::new(),
-            smt2contexts: vec![smt2lib::Context::new()],
-            asserts_so_far: 0,
-            keep_functions: false,
-        };
-    }
-
-    pub(crate) fn keep_functions(&mut self) {
-        self.keep_functions = true;
-    }
-
-    pub(crate) fn add_egglog_sink(&mut self, path: &std::path::Path) -> anyhow::Result<()> {
-        self.sinks
-            .add_output(eggloglog::EgglogLogStream::new(std::fs::File::create(
-                path,
-            )?));
-        Ok(())
-    }
-
-    pub(crate) fn add_markdown_sink(&mut self, path: &std::path::Path) -> anyhow::Result<()> {
-        self.sinks
-            .add_output(markdown::MarkdownLogStream::new(std::fs::File::create(
-                path,
-            )?));
-        Ok(())
-    }
-
     pub(crate) fn text(&mut self, text: &str) -> anyhow::Result<()> {
         self.sinks.add_text(text)
     }
 
     pub(crate) fn newline(&mut self) -> anyhow::Result<()> {
         self.sinks.newline()
-    }
-
-    pub(crate) fn run_cmds(&mut self, commands: Vec<egglog::ast::Command>) -> anyhow::Result<()> {
-        let rendered = commands.iter().join("\n");
-        self.run_code(&rendered, commands)
     }
 
     pub(crate) fn run_code(
@@ -101,5 +66,66 @@ impl Context {
             }
         }
         Ok(())
+    }
+}
+
+impl Context {
+    pub fn new() -> Context {
+        let egraph = EGraph::default();
+        return Context {
+            egraph,
+            sinks: LogSink::new(),
+            smt2contexts: vec![smt2lib::Context::new()],
+            asserts_so_far: 0,
+            keep_functions: false,
+        };
+    }
+
+    pub fn keep_functions(&mut self) {
+        self.keep_functions = true;
+    }
+
+    pub fn add_egglog_sink(&mut self, path: &std::path::Path) -> anyhow::Result<()> {
+        self.add_output(eggloglog::EgglogLogStream::new(std::fs::File::create(
+            path,
+        )?));
+        Ok(())
+    }
+
+    pub fn add_markdown_sink(&mut self, path: &std::path::Path) -> anyhow::Result<()> {
+        self.add_output(markdown::MarkdownLogStream::new(std::fs::File::create(
+            path,
+        )?));
+        Ok(())
+    }
+
+    pub fn print_results_to_stdout(&mut self) {
+        struct StdoutCmdResultsStream;
+
+        impl LogStream for StdoutCmdResultsStream {
+            fn check_sat_status(&mut self, status: SATStatus) -> anyhow::Result<()> {
+                match status {
+                    SATStatus::UnSat => println!("unsat"),
+                    SATStatus::Sat => println!("sat"),
+                    SATStatus::Unknown => println!("unknown"),
+                }
+                Ok(())
+            }
+        }
+
+        self.add_output(StdoutCmdResultsStream);
+    }
+
+    pub fn add_output(&mut self, out: impl LogStream + 'static) {
+        self.sinks.add_output(out);
+    }
+
+    pub fn run_cmds(&mut self, commands: Vec<egglog::ast::Command>) -> anyhow::Result<()> {
+        let rendered = commands.iter().join("\n");
+        self.run_code(&rendered, commands)
+    }
+
+    pub fn serialize(&self, config: egglog::SerializeConfig) -> egraph_serialize::EGraph {
+        self.egraph.serialize(config)
     }
 }

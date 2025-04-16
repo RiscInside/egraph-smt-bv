@@ -297,10 +297,7 @@ impl Context {
         }
     }
 
-    pub(crate) fn handle_smt2lib_command(
-        &mut self,
-        command: &concrete::Command,
-    ) -> anyhow::Result<()> {
+    pub fn run_smt2lib_command(&mut self, command: &concrete::Command) -> anyhow::Result<()> {
         use concrete::Command::*;
         match command {
             Assert { term } => self.assert_term(term),

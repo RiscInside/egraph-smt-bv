@@ -1,4 +1,8 @@
-use crate::{log::Log, Context};
+use crate::{
+    log::{output::LogStream, Log},
+    status::SATStatus,
+    Context,
+};
 use egglog::{ast::Expr, call};
 use lazy_static::lazy_static;
 
@@ -18,11 +22,9 @@ impl Context {
         );
 
         if value.bits == 1 {
-            self.text("Result: **UNSAT**")?;
-            println!("unsat");
+            self.sinks.check_sat_status(SATStatus::UnSat)?;
         } else {
-            self.text("Result: **Unknown**")?;
-            println!("unknown");
+            self.sinks.check_sat_status(SATStatus::Unknown)?;
         }
 
         self.newline()?;

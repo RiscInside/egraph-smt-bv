@@ -4,6 +4,10 @@
 
 (rule ((= (B true) (B false))) ((set (ProvenUnsat) true)) :ruleset fold)
 
+; ### Deriving UNSAT from bitvector constant propogation
+
+(rule ((= (BvConst v1 w) (BvConst v2 w)) (!= v1 v2)) ((set (ProvenUnsat) true)) :ruleset fold)
+
 ; ### Equality rules
 
 (rule ((= tt (Equal e1 e2))) ((union e1 e2)) :ruleset eq)

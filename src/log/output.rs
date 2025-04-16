@@ -1,8 +1,29 @@
-pub(crate) trait LogStream {
-    fn egglog_code_pre_exec(&mut self, source: &str) -> anyhow::Result<()>;
-    fn egglog_code_post_exec(&mut self) -> anyhow::Result<()>;
-    fn add_text(&mut self, text: &str) -> anyhow::Result<()>;
-    fn newline(&mut self) -> anyhow::Result<()>;
+use crate::status::SATStatus;
+
+pub trait LogStream {
+    fn egglog_code_pre_exec(&mut self, _source: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn egglog_code_post_exec(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn add_text(&mut self, _text: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn newline(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn check_sat_status(&mut self, status: SATStatus) -> anyhow::Result<()> {
+        match status {
+            SATStatus::UnSat => self.add_text("Result: **UNSAT**"),
+            SATStatus::Sat => self.add_text("Result: **SAT**"),
+            SATStatus::Unknown => self.add_text("Result: **Unknown**"),
+        }
+    }
 }
 
 pub(crate) struct LogSink {
@@ -44,6 +65,13 @@ impl LogStream for LogSink {
     fn newline(&mut self) -> anyhow::Result<()> {
         for output in self.outputs.iter_mut() {
             output.newline()?;
+        }
+        Ok(())
+    }
+
+    fn check_sat_status(&mut self, status: SATStatus) -> anyhow::Result<()> {
+        for output in self.outputs.iter_mut() {
+            output.check_sat_status(status)?;
         }
         Ok(())
     }

@@ -5,4 +5,4 @@
 *.out.json
 *.out.svg
 *.generated.unsat.smt2
-playground.smt2s
+playground.smt2

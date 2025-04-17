@@ -56,50 +56,49 @@
 ; Note that we already have commutativity, so we don't have to invert those
 ; patterns.
 
-(rewrite (And a (BvAll true _)) a :replace :ruleset fold)
-(rewrite (And a (B true)) a :replace :ruleset fold)
+(rewrite (And a (BvAll true _)) a :subsume :ruleset fold)
+(rewrite (And a (B true)) a :subsume :ruleset fold)
 
-(rewrite (And a (BvAll false w)) (BvAll false w) :replace :ruleset fold)
-(rewrite (And a (B false)) (B false) :replace :ruleset fold)
+(rewrite (And a (BvAll false w)) (BvAll false w) :subsume :ruleset fold)
+(rewrite (And a (B false)) (B false) :subsume :ruleset fold)
 
-(rewrite (And a a) a :replace :ruleset fold)
-(rewrite (And a (Not a)) (BvAll false w) :when ((= w (Width a))) :replace :ruleset fold)
-(rewrite (And a (Not a)) (B false) :when ((Boolean a)) :replace :ruleset fold)
+(rewrite (And a a) a :subsume :ruleset fold)
+(rewrite (And a (Not a)) (BvAll false w) :when ((= w (Width a))) :subsume :ruleset fold)
+(rewrite (And a (Not a)) (B false) :when ((Boolean a)) :subsume :ruleset fold)
 
 ; #### O2 rules
 
 ; Contradiction
 
-(rewrite (And (And (Not a) b) a) (BvAll false w) :when ((= w (Width a))) :replace :ruleset fold)
-(rewrite (And (And (Not a) b) a) (B false) :when ((Boolean a)) :replace :ruleset fold)
-(rewrite (And (And a b) (Not a)) (BvAll false w) :when ((= w (Width a))) :replace :ruleset fold)
-(rewrite (And (And a b) (Not a)) (B false) :when ((Boolean a)) :replace :ruleset fold)
-(rewrite (And (And a b) (And (Not a) c)) (BvAll false w) :when ((= w (Width a))) :replace :ruleset fold)
-(rewrite (And (And a b) (And (Not a) c)) (B false) :when ((Boolean a)) :replace :ruleset fold)
+(rewrite (And (And (Not a) b) a) (BvAll false w) :when ((= w (Width a))) :subsume :ruleset fold)
+(rewrite (And (And (Not a) b) a) (B false) :when ((Boolean a)) :subsume :ruleset fold)
+(rewrite (And (And a b) (Not a)) (BvAll false w) :when ((= w (Width a))) :subsume :ruleset fold)
+(rewrite (And (And a b) (Not a)) (B false) :when ((Boolean a)) :subsume :ruleset fold)
+(rewrite (And (And a b) (And (Not a) c)) (BvAll false w) :when ((= w (Width a))) :subsume :ruleset fold)
+(rewrite (And (And a b) (And (Not a) c)) (B false) :when ((Boolean a)) :subsume :ruleset fold)
 
 ; Subsumption
 
-(rewrite (And (Not (And (Not a) b)) a) a :replace :ruleset fold)
-(rewrite (And (Not (And a b)) (Not a)) (Not a) :replace :ruleset fold)
-(rewrite (And (Not (And (Not a) b)) (And a c)) (And a c) :replace :ruleset fold)
-(rewrite (And (Not (And a b)) (And (Not a) c)) (And (Not a) c) :replace :ruleset fold)
+(rewrite (And (Not (And (Not a) b)) a) a :subsume :ruleset fold)
+(rewrite (And (Not (And a b)) (Not a)) (Not a) :subsume :ruleset fold)
+(rewrite (And (Not (And (Not a) b)) (And a c)) (And a c) :ruleset fold)
+(rewrite (And (Not (And a b)) (And (Not a) c)) (And (Not a) c) :ruleset fold)
 
 ; Idempotence
 
-(rewrite (And (And a b) a) (And a b) :replace :ruleset fold)
-(rewrite (And (Not (And a b)) (Not (And a (Not b)))) (Not a) :replace :ruleset fold)
+(rewrite (And (And a b) a) (And a b) :ruleset fold)
+(rewrite (And (Not (And a b)) (Not (And a (Not b)))) (Not a) :subsume :ruleset fold)
 
 ; #### O3 rules
 
-(rewrite (And (Not (And a b)) b) (And (Not a) b) :replace :ruleset fold)
-(rewrite (And (Not (And a b)) (And b c)) (And (Not a) (And b c)) :replace :ruleset fold)
+(rewrite (And (Not (And a b)) b) (And (Not a) b) :ruleset fold)
+(rewrite (And (Not (And a b)) (And b c)) (And (Not a) (And b c)) :ruleset fold)
 
 ; #### O4 rules
 
 (rule ((= e (And (And a b) (And a d))))
       ((union e (And (And a b) d))
-       (union e (And (And a d) b))
-       (replace (And (And a b) (And a d)) (And (And a b) d) (And (And a d) b)))
+       (union e (And (And a d) b)))
       :ruleset fold)
 
 ; ### Commutativity of `And`

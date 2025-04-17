@@ -22,9 +22,9 @@ impl LogStream for AssertExactStatus {
     }
 }
 
-fn run_unsat_test(path: &Path) {
+fn run_smt2_test(path: &Path, expected_status: SATStatus) {
     let mut ctx: Context = Context::new();
-    ctx.add_output(AssertExactStatus(SATStatus::UnSat));
+    ctx.add_output(AssertExactStatus(expected_status));
     ctx.run_prelude().unwrap();
 
     let file = std::fs::File::open(path).unwrap();
@@ -43,12 +43,17 @@ fn run_unsat_test(path: &Path) {
     }
 }
 
-fn unsat_tests_from_smt2_files(pattern: &'static str, trials: &mut Vec<Trial>) {
+fn add_tests_from_smt2_files(
+    pattern: &'static str,
+    trials: &mut Vec<Trial>,
+    expected_status: SATStatus,
+) {
     for path in glob(pattern).unwrap().map(Result::unwrap) {
+        let cloned = path.clone();
         trials.push(Trial::test(
             path.file_stem().unwrap().to_str().unwrap().to_owned(),
             move || {
-                run_unsat_test(&path);
+                run_smt2_test(&cloned, expected_status);
                 Ok(())
             },
         ));
@@ -73,9 +78,6 @@ fn run_yosys_scripts(pattern: &'static str) {
     let mut launched_yosys_processes = vec![];
     for yosys_script_path in glob(pattern).unwrap().map(Result::unwrap) {
         let expected_output = expected_smt2_filename(&yosys_script_path);
-        if expected_output.exists() {
-            continue;
-        }
 
         eprintln!(
             "Generating SMT2LIB file `{}` from yosys script `{}`",
@@ -120,10 +122,12 @@ fn run_yosys_scripts(pattern: &'static str) {
 }
 
 pub fn main() {
-    // Generate all smt2lib problems we can from yosys scripts
+    // Generate all smt2lib problems we can from yosys scripts.
     run_yosys_scripts("**/*.ys-test");
     // Create trials from smt2lib files
     let mut tests = vec![];
-    unsat_tests_from_smt2_files("**/*.unsat*.smt2", &mut tests);
+    add_tests_from_smt2_files("tests/**/*.unsat*.smt2", &mut tests, SATStatus::UnSat);
+    add_tests_from_smt2_files("tests/**/*.unknown*.smt2", &mut tests, SATStatus::Unknown);
+    add_tests_from_smt2_files("tests/**/*.sat*.smt2", &mut tests, SATStatus::Sat);
     run(&Arguments::from_args(), tests).exit_if_failed();
 }

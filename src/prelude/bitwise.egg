@@ -64,18 +64,18 @@
 
 (rewrite (And a a) a :replace :ruleset fold)
 (rewrite (And a (Not a)) (BvAll false w) :when ((= w (Width a))) :replace :ruleset fold)
-(rewrite (And a (Not a)) (B false) :replace :ruleset fold)
+(rewrite (And a (Not a)) (B false) :when ((Boolean a)) :replace :ruleset fold)
 
 ; #### O2 rules
 
 ; Contradiction
 
 (rewrite (And (And (Not a) b) a) (BvAll false w) :when ((= w (Width a))) :replace :ruleset fold)
-(rewrite (And (And (Not a) b) a) (B false) :replace :ruleset fold)
+(rewrite (And (And (Not a) b) a) (B false) :when ((Boolean a)) :replace :ruleset fold)
 (rewrite (And (And a b) (Not a)) (BvAll false w) :when ((= w (Width a))) :replace :ruleset fold)
-(rewrite (And (And a b) (Not a)) (B false) :replace :ruleset fold)
+(rewrite (And (And a b) (Not a)) (B false) :when ((Boolean a)) :replace :ruleset fold)
 (rewrite (And (And a b) (And (Not a) c)) (BvAll false w) :when ((= w (Width a))) :replace :ruleset fold)
-(rewrite (And (And a b) (And (Not a) c)) (B false) :replace :ruleset fold)
+(rewrite (And (And a b) (And (Not a) c)) (B false) :when ((Boolean a)) :replace :ruleset fold)
 
 ; Subsumption
 

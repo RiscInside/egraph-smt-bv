@@ -53,13 +53,13 @@
 
 ; ### Concat of two adjacent extractions
 
-(rule ((= e (Concat (Extract i j a) (Extract j k a))))
+(rule ((= e (Concat (Extract i (+ 1 j) a) (Extract j k a))))
       ((union e (Extract i k a))
-       (subsume (Concat (Extract i j a) (Extract j k a)))) :ruleset fold)
+       (subsume (Concat (Extract i (+ 1 j) a) (Extract j k a)))) :ruleset fold)
 
 ; ### Equality from two adjacent extractions
 
-(rule ((= (Extract ia ja a) (Extract ib jb b)) (= (Extract ja ka a) (Extract jb kb b))) 
+(rule ((= (Extract ia (+ 1 ja) a) (Extract ib (+ 1 jb) b)) (= (Extract ja ka a) (Extract jb kb b))) 
 ((union (Extract ia ka a) (Extract ib kb b))) :ruleset safe)
 
 ; ### Equality of two concats
@@ -98,4 +98,5 @@
 ; `Concat` and `Extract` are implemented with bit-shifts on bigints.
 
 (rewrite (Concat (BvConst a w1) (BvConst b w2)) (BvConst (| (<< a w2) b) (+ w1 w2)) :subsume :ruleset fold)
-(rewrite (Extract i j (BvConst a w)) (BvConst (& (>> a j) (- (<< __1 i) __1)) (+ 1 (- i j))) :subsume :ruleset fold)
+
+(rewrite (Extract i j (BvConst a w)) (BvConst (>> (& a (- (<< __1 (+ i 1)) __1)) j) (+ 1 (- i j))) :subsume :ruleset fold)

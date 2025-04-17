@@ -94,6 +94,13 @@
 
 (ruleset unsafe)
 
+; ### Visualisation ruleset (`vis`)
+
+; `vis` runs before serializing for e-graph visulisation playground. The goal is to remove
+; some junk that makes graph hard to read
+
+(ruleset vis)
+
 ; ### `ProvenUnsat`
 
 ; `ProvenUnsat` is used to query the system for whether UNSAT status has been shown. Rules can use `(set (ProvenUnsat) true)` to report discovered inconsistency.

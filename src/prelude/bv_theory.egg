@@ -89,12 +89,18 @@
 
 (function Width (V) i64 :no-merge)
 
+; Since width relation keeps all bit-vectors reachable, we remove it for visualisations
+; to allow for better filtering
+
+(rule ((Width v)) ((delete (Width v))) :ruleset vis)
+
 ; #### Propagation rules
 
 ; We define width propagation rules for basic primitives. This mostly resemble
 ; ones implemented in the Rust sort checker.
 
 (rule ((= e (ITE c e1 e2)) (= w1 (Width e1))) ((set (Width e) w1)) :ruleset width)
+(rule ((= e (ITE c e1 e2)) (= w2 (Width e2))) ((set (Width e) w2)) :ruleset width)
 
 (rule ((= e (Concat lhs rhs)) (= lw (Width lhs)) (= rw (Width rhs)))
       ((set (Width e) (+ lw rw))) :ruleset width)
@@ -114,6 +120,13 @@
 (rule ((= e (Nor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
 (rule ((= e (XNor e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
 
+(rule ((= e (And e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Or e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Xor e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Nand e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Nor e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (XNor e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
+
 (rule ((= e (Add e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
 (rule ((= e (Sub e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
 (rule ((= e (Mul e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
@@ -125,6 +138,19 @@
 (rule ((= e (Shl e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
 (rule ((= e (LShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
 (rule ((= e (AShr e1 e2)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+
+
+(rule ((= e (Add e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Sub e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Mul e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (UDiv e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (URem e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (SDiv e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (SRem e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (SMod e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (Shl e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (LShr e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
+(rule ((= e (AShr e1 e2)) (= w (Width e2))) ((set (Width e) w)) :ruleset width)
 
 (rule ((= e (BvConst v w))) ((set (Width e) w)) :ruleset width)
 (rule ((= e (BvAll b w))) ((set (Width e) w)) :ruleset width)

@@ -92,13 +92,6 @@
 
 (rule ((= (Add x z) (Add y z))) ((union x y)) :ruleset fold)
 
-; ### Pushing down equality of `AddC` and `Neg`
-
-(rewrite (Equal (Add x y) (Add y z)) (Equal x z) :ruleset fold)
-(rewrite (Equal (Add x y) (Add x z)) (Equal y z) :ruleset fold)
-(rewrite (Equal (AddC x v) (AddC y v)) (Equal x y) :replace :ruleset fold)
-(rewrite (Equal (Neg x) (Neg y)) (Equal x y) :replace :ruleset fold)
-
 ; ### Combining zero-extensions
 
 (rewrite (ZeroExtend n1 (ZeroExtend n2 e)) (ZeroExtend (+ n1 n2) e) :subsume :ruleset fold)

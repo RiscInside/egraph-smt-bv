@@ -14,7 +14,5 @@
 (rewrite (Equal e e) tt :subsume :ruleset fold)
 (rewrite (Equal tt ff) ff :subsume :ruleset fold)
 
-(rewrite (Equal x y) (Equal y x) :ruleset safe)
-
 ; We can also get rid of redundant equalities (to make e-graph a bit more readable)
 ; (rule ((= tt (Equal v v))) ((delete (Equal v v))) :ruleset fold)

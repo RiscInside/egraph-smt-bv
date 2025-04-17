@@ -4,7 +4,8 @@
 (assert (distinct (bvadd a (bvadd a (bvadd a (bvadd a (bvadd a (bvadd a (bvadd a (bvadd a b))))))))
 (bvadd (bvadd (bvadd (bvadd (bvadd (bvadd (bvadd (bvadd a a) a) a) a) a) a) a) b)))
 
-; This example won't work with a standard schedule, but we can make it work with a custom one
-(set-option :plan (seq (repeat 3 "unsafe" "safe") (repeat 3 "fold" "fold" "fold")))
+; This example currently won't terminate in a reasonable time with the default schedule.
+; We can use a custom schedule to solve it in hundreds of milliseconds.
+(set-option :plan (seq (repeat 3 "unsafe" "safe") (repeat 3 "fold")))
 
 (check-sat)

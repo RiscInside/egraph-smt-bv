@@ -10,6 +10,7 @@ use crate::{
         output::{LogSink, LogStream},
         Log, LogItem,
     },
+    plan::Plan,
     smt2lib,
     status::SATStatus,
 };
@@ -27,6 +28,8 @@ pub struct Context {
     pub(crate) smt2contexts: Vec<smt2lib::Context>,
     /// Assertions count
     pub(crate) asserts_so_far: usize,
+    /// Default plan for the `check-sat` command
+    pub(crate) check_sat_plan: Plan,
     /// True if functions should be kept in the e-graph
     pub(crate) keep_functions: bool,
 }
@@ -77,12 +80,18 @@ impl Context {
             sinks: LogSink::new(),
             smt2contexts: vec![smt2lib::Context::new()],
             asserts_so_far: 0,
+            check_sat_plan: Plan::check_sat_default(None),
             keep_functions: false,
         }
     }
 
     pub fn keep_functions(&mut self) {
         self.keep_functions = true;
+    }
+
+    pub fn add_timeout(&mut self, duration: std::time::Duration) {
+        let plan = std::mem::replace(&mut self.check_sat_plan, Plan::Seq(vec![]));
+        self.check_sat_plan = Plan::Timeout(vec![plan], duration);
     }
 
     pub fn add_egglog_sink(&mut self, path: &std::path::Path) -> anyhow::Result<()> {

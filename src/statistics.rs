@@ -1,5 +1,4 @@
 use crate::context::Context;
-use anyhow::bail;
 use egglog::{ast::Symbol, util::IndexMap, RunReport};
 use itertools::Itertools;
 use std::time::Duration;
@@ -64,11 +63,22 @@ fn get_ruleset_times(report: &RunReport, name: &str) -> (Duration, Duration, Dur
 }
 
 impl Context {
-    pub(crate) fn print_stats(&mut self) -> anyhow::Result<()> {
-        let Some(report) = self.egraph.get_run_report() else {
-            bail!("No run report found");
-        };
+    pub(crate) fn print_all_applied_rules(&mut self, report: &RunReport) -> anyhow::Result<()> {
+        for (name, matches) in report
+            .num_matches_per_rule
+            .iter()
+            .sorted_by_key(|(_, matches)| std::cmp::Reverse(**matches))
+            .filter(|(_, matches)| **matches > 0)
+        {
+            self.text(&format!(
+                "- `{}` ({matches} matches)",
+                format_rule_name(name.as_str())
+            ))?;
+        }
+        Ok(())
+    }
 
+    pub(crate) fn print_stats(&mut self, report: &RunReport) -> anyhow::Result<()> {
         let top_apps = top_entries(&report.num_matches_per_rule, 0);
         let top_search_time = top_entries(&report.search_time_per_rule, Duration::new(0, 0));
         let top_apply_time = top_entries(&report.apply_time_per_rule, Duration::new(0, 0));

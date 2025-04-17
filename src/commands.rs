@@ -6,9 +6,13 @@ use egglog::{
     },
     span,
 };
-use smt2parser::concrete;
+use smt2parser::{
+    concrete::{self, SExpr},
+    visitors::AttributeValue,
+};
 
 use crate::{
+    plan::Plan,
     smt2lib::{
         fun::{FunctionDef, FunctionLoweringSpec, FunctionSortCheckSpec},
         sort::Sort,
@@ -297,6 +301,21 @@ impl Context {
         }
     }
 
+    pub(crate) fn set_option(
+        &mut self,
+        keyword: &str,
+        value: &AttributeValue,
+    ) -> anyhow::Result<()> {
+        match (keyword, value) {
+            ("plan", AttributeValue::SExpr(sexprs)) => {
+                self.check_sat_plan = Plan::parse(&SExpr::Application(sexprs.clone()))?;
+                Ok(())
+            }
+            ("plan", _) => bail!("Expected plan to be an S-expression"),
+            _ => bail!("Unsupported option {keyword}"),
+        }
+    }
+
     pub fn run_smt2lib_command(&mut self, command: &concrete::Command) -> anyhow::Result<()> {
         use concrete::Command::*;
         match command {
@@ -346,7 +365,7 @@ impl Context {
                 }
                 Ok(())
             }
-            SetOption { .. } => bail!("set-option isn't supported"),
+            SetOption { keyword, value } => self.set_option(&keyword.0, value),
         }
     }
 }

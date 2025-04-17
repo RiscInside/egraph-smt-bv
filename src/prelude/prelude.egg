@@ -59,6 +59,13 @@
 
 (ruleset fold)
 
+; ### Width ruleset (`width`)
+
+; We define a custom ruleset for width propogation - it runs together with safe
+; rules, but it also needs to run prior to desugaring.
+
+(ruleset width)
+
 ; ### Equality intro ruleset
 
 ; `eq` ruleset allows to go from `Equal x y = true` to `x = y`. This

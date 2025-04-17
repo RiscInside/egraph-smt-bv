@@ -89,11 +89,6 @@
 
 (function Width (V) i64 :no-merge)
 
-; We define a custom ruleset for width propogation - it runs together with safe
-; rules, but it also needs to run prior to desugaring.
-
-(ruleset width)
-
 ; #### Propagation rules
 
 ; We define width propagation rules for basic primitives. This mostly resemble

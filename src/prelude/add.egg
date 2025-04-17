@@ -38,7 +38,7 @@
 
 ; We can collapse multiple `AddC`s together.
 
-(rewrite (AddC (AddC x p) q) (AddC x (% (+ p q) (<< __1 w))) :when ((= w (Width x))) :ruleset fold)
+(rewrite (AddC (AddC x p) q) (AddC x (% (+ p q) (<< __1 w))) :when ((= w (Width x))) :subsume :ruleset fold)
 
 ; `AddC` can travel through `Add`.
 
@@ -96,8 +96,8 @@
 
 (rewrite (Equal (Add x y) (Add y z)) (Equal x z) :ruleset fold)
 (rewrite (Equal (Add x y) (Add x z)) (Equal y z) :ruleset fold)
-(rewrite (Equal (AddC x v) (AddC y v)) (Equal x y) :ruleset fold)
-(rewrite (Equal (Neg x) (Neg y)) (Equal x y) :ruleset fold)
+(rewrite (Equal (AddC x v) (AddC y v)) (Equal x y) :replace :ruleset fold)
+(rewrite (Equal (Neg x) (Neg y)) (Equal x y) :replace :ruleset fold)
 
 ; ### Combining zero-extensions
 

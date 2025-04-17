@@ -1,7 +1,7 @@
-pub(crate) mod check_sat;
 pub(crate) mod commands;
 pub(crate) mod context;
 pub(crate) mod log;
+pub(crate) mod plan;
 pub(crate) mod prelude;
 pub(crate) mod smt2lib;
 pub(crate) mod statistics;

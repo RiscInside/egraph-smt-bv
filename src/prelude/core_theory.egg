@@ -26,12 +26,12 @@
 
 ; We can derive `Boolean` from them.
 
-(rule ((= e (Not e1))) ((Boolean e)) :ruleset safe)
-(rule ((= e (Implies e1 e2))) ((Boolean e)) :ruleset safe)
-(rule ((= e (And e1 e2))) ((Boolean e)) :ruleset safe)
-(rule ((= e (Or e1 e2))) ((Boolean e)) :ruleset safe)
-(rule ((= e (Xor e1 e2))) ((Boolean e)) :ruleset safe)
-(rule ((= e (ITE c e1 e2)) (Boolean e1)) ((Boolean e)) :ruleset safe)
+(rule ((= e (Not e1)) (Boolean e1)) ((Boolean e)) :ruleset width)
+(rule ((= e (Implies e1 e2)) (Boolean e1)) ((Boolean e)) :ruleset width)
+(rule ((= e (And e1 e2)) (Boolean e1)) ((Boolean e)) :ruleset width)
+(rule ((= e (Or e1 e2)) (Boolean e1)) ((Boolean e)) :ruleset width)
+(rule ((= e (Xor e1 e2)) (Boolean e1)) ((Boolean e)) :ruleset width)
+(rule ((= e (ITE c e1 e2)) (Boolean e1)) ((Boolean e)) :ruleset width)
 
 ; Variadic equality/disequality operators
 

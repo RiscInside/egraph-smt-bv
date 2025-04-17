@@ -7,6 +7,7 @@ use std::{
     alloc,
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    time::Duration,
 };
 struct AssertExactStatus(SATStatus);
 
@@ -25,6 +26,7 @@ impl LogStream for AssertExactStatus {
 fn run_smt2_test(path: &Path, expected_status: SATStatus) {
     let mut ctx: Context = Context::new();
     ctx.add_output(AssertExactStatus(expected_status));
+    ctx.add_timeout(Duration::from_secs(5));
     ctx.run_prelude().unwrap();
 
     let file = std::fs::File::open(path).unwrap();

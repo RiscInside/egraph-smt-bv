@@ -226,20 +226,23 @@ impl Context {
             }
             Tactic::DumpJson(path) => {
                 // Clean the e-graph
-                self.egraph.push();
-                self.run_cmds(vec![Command::RunSchedule(GenericSchedule::Run(
-                    span!(),
-                    RunConfig {
-                        ruleset: "vis".into(),
-                        until: None,
-                    },
-                ))])?;
+                self.run_cmds(vec![
+                    Command::Push(1),
+                    Command::RunSchedule(GenericSchedule::Run(
+                        span!(),
+                        RunConfig {
+                            ruleset: "vis".into(),
+                            until: None,
+                        },
+                    )),
+                ])
+                .unwrap();
 
                 let serialized = self.serialize(SerializeConfig::default());
                 serialized
                     .to_json_file(path)
                     .context("dumping json for the e-graph")?;
-                self.egraph.pop().unwrap();
+                self.run_cmds(vec![Command::Pop(span!(), 1)]).unwrap();
                 Ok(false)
             }
             Tactic::Log(msg) => {

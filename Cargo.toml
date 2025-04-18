@@ -11,7 +11,7 @@ harness = false
 anyhow = "1.0.93"
 cap = "0.1.2"
 clap = { version = "4.5.20", features = ["derive"] }
-egglog = { git = "https://github.com/RiscInside/egglog" }
+egglog = { git = "https://github.com/egraphs-good/egglog", rev = "24d914f41ac2edc0936a56d92bcd1da4a5382e0b" }
 egraph-serialize = { version = "0.2.0", features = ["graphviz"] }
 im-rc = "15.1.0"
 itertools = "0.13.0"

@@ -17,15 +17,16 @@ use crate::{
         fun::{FunctionDef, FunctionLoweringSpec, FunctionSortCheckSpec},
         sort::Sort,
         term::{LocalContext, Lowered},
+        to_egglog_name,
     },
     Context,
 };
 
 const MAX_TERM_STR_LEN: usize = 60;
 
-fn fun_decl_egglog_command(name: &str, params_len: usize) -> Command {
+fn fun_decl_egglog_command(name: Symbol, params_len: usize) -> Command {
     Command::Constructor {
-        name: name.into(),
+        name,
         schema: Schema {
             input: std::iter::repeat_n("V".into(), params_len).collect(),
             output: "V".into(),
@@ -126,6 +127,7 @@ impl Context {
     pub(crate) fn add_fun_mapping(
         &mut self,
         name: &str,
+        egglog_name: Symbol,
         params: Vec<Sort>,
         result: Sort,
     ) -> anyhow::Result<()> {
@@ -139,7 +141,7 @@ impl Context {
 
         vacant_entry.insert(FunctionDef::simple(
             FunctionSortCheckSpec::Fixed { params, result },
-            FunctionLoweringSpec::direct(name),
+            FunctionLoweringSpec::direct(egglog_name),
         ));
 
         Ok(())
@@ -151,13 +153,14 @@ impl Context {
         params: &[concrete::Sort],
         sort: &concrete::Sort,
     ) -> anyhow::Result<()> {
+        let egglog_name = to_egglog_name(name);
         let params = params
             .iter()
             .map(|concrete| self.smt2lib_context_mut().parse_sort(concrete))
             .collect::<Result<Vec<_>, _>>()?;
         let sort = self.smt2lib_context_mut().parse_sort(sort)?;
 
-        let mut commands = vec![fun_decl_egglog_command(name, params.len())];
+        let mut commands = vec![fun_decl_egglog_command(egglog_name, params.len())];
 
         if let Sort::BitVec(width) = sort {
             // Add a rule for computing bitvector width
@@ -187,7 +190,7 @@ impl Context {
         self.run_cmds(commands)?;
         self.newline()?;
 
-        self.add_fun_mapping(name, params, sort)
+        self.add_fun_mapping(name, egglog_name, params, sort)
     }
 
     pub(crate) fn define_fun(
@@ -195,6 +198,7 @@ impl Context {
         sig: &concrete::FunctionDec,
         term: &concrete::Term,
     ) -> anyhow::Result<()> {
+        let egglog_name = to_egglog_name(&sig.name.0);
         let keep_functions = self.keep_functions;
         let mut param_sorts = vec![];
         let smt2context = self.smt2lib_context_mut();
@@ -250,15 +254,15 @@ impl Context {
                 } else {
                     Change::Delete
                 },
-                Symbol::new(&sig.name.0),
+                egglog_name,
                 params_exprs.clone(),
             ));
-            let enode_expr = egglog::ast::call!(&sig.name.0, params_exprs);
+            let enode_expr = egglog::ast::call!(egglog_name, params_exprs);
 
             vec![
-                fun_decl_egglog_command(&sig.name.0, sig.parameters.len()),
+                fun_decl_egglog_command(egglog_name, sig.parameters.len()),
                 egglog::ast::Command::Rule {
-                    name: sig.name.0.to_owned().into(),
+                    name: egglog_name,
                     ruleset: "desugar".into(),
                     rule: Rule {
                         span: span!(),
@@ -273,7 +277,7 @@ impl Context {
         self.newline()?;
         self.run_cmds(commands)?;
         self.newline()?;
-        self.add_fun_mapping(&sig.name.0, param_sorts, result_sort)?;
+        self.add_fun_mapping(&sig.name.0, egglog_name, param_sorts, result_sort)?;
         Ok(())
     }
 

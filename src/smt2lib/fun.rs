@@ -65,19 +65,19 @@ impl FunctionSortCheckSpec {
 pub(crate) enum FunctionLoweringSpec {
     /// Lower directly as n-ary function application. This should be used
     /// for most operations where arity is fixed.
-    Direct { symbol: egglog::ast::Symbol },
+    Direct { symbol: Symbol },
     /// Lower as a left-associative fold.
-    LeftAssociative { symbol: egglog::ast::Symbol },
+    LeftAssociative { symbol: Symbol },
     /// Lower as a right-associative fold.
-    RightAssociative { symbol: egglog::ast::Symbol },
+    RightAssociative { symbol: Symbol },
     /// Lower as unary function application with a variadic argument list
-    Variadic { symbol: egglog::ast::Symbol },
+    Variadic { symbol: Symbol },
     /// Lower as a variable
-    Variable { symbol: egglog::ast::Symbol },
+    Variable { symbol: Symbol },
 }
 
 impl FunctionLoweringSpec {
-    pub(crate) fn direct(name: &str) -> FunctionLoweringSpec {
+    pub(crate) fn direct(name: impl Into<Symbol>) -> FunctionLoweringSpec {
         FunctionLoweringSpec::Direct {
             symbol: name.into(),
         }

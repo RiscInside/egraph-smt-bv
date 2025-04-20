@@ -42,7 +42,7 @@ jobs:
       uses: taiki-e/install-action@nextest
     
     - name: Run nextest
-      run: cargo nextest run --release
+      run: cargo nextest run --no-fail-fast --release
 
     - name: Run rustfmt
       uses: actions-rust-lang/rustfmt@v1

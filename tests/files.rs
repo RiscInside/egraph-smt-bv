@@ -52,13 +52,10 @@ fn add_tests_from_smt2_files(
 ) {
     for path in glob(pattern).unwrap().map(Result::unwrap) {
         let cloned = path.clone();
-        trials.push(Trial::test(
-            path.file_stem().unwrap().to_str().unwrap().to_owned(),
-            move || {
-                run_smt2_test(&cloned, expected_status);
-                Ok(())
-            },
-        ));
+        trials.push(Trial::test(path.to_str().unwrap().to_owned(), move || {
+            run_smt2_test(&cloned, expected_status);
+            Ok(())
+        }));
     }
 }
 

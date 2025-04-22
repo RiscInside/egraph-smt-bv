@@ -47,6 +47,10 @@
       ((subsume (Extract i j (Concat a b))) (union e (Concat (Extract (- i bw) 0 a) (Extract (- bw 1) j b))))
       :ruleset fold)
 
+; ### Pushing extract through itself
+
+(rewrite (Extract i1 j1 (Extract _ j2 x)) (Extract (+ i1 j2) (+ j1 j2) x) :subsume :ruleset fold)
+
 ; ### Full width extractions
 
 (rule ((= e (Extract w 0 i)) (= (+ w 1) (Width i))) ((delete (Extract w 0 i)) (union e i)) :ruleset fold)

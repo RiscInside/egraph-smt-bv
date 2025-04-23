@@ -104,3 +104,10 @@
 (rewrite (Concat (BvConst a w1) (BvConst b w2)) (BvConst (| (<< a w2) b) (+ w1 w2)) :subsume :ruleset fold)
 
 (rewrite (Extract i j (BvConst a w)) (BvConst (>> (& a (- (<< __1 (+ i 1)) __1)) j) (+ 1 (- i j))) :subsume :ruleset fold)
+
+; ### Redundant extact/zero-extensions
+
+(rewrite (Extract i 0 (Mul (Concat _1 a) (Concat _2 b))) (Mul a b) :when ((= (+ i 1) (Width a)) (= (Width a) (Width b))) :ruleset fold)
+(rewrite (Extract i 0 (Add (Concat _1 a) (Concat _2 b))) (Add a b) :when ((= (+ i 1) (Width a)) (= (Width a) (Width b))) :ruleset fold)
+(rewrite (Extract i 0 (And (Concat _1 a) (Concat _2 b))) (Add a b) :when ((= (+ i 1) (Width a)) (= (Width a) (Width b))) :ruleset fold)
+(rewrite (Extract i 0 (Not (Concat _1 a))) (Not a) :when ((= (+ i 1) (Width a))) :ruleset fold)

@@ -1,6 +1,5 @@
 use anyhow::bail;
 use clap::Parser;
-use egglog::SerializeConfig;
 use egraph_smt_bv::Context;
 
 #[derive(Parser)]
@@ -10,12 +9,14 @@ struct Args {
     egglog_output: Vec<std::path::PathBuf>,
     #[arg(short, long)]
     markdown_output: Vec<std::path::PathBuf>,
-    #[arg(short, long)]
-    json_egraph_path: Option<std::path::PathBuf>,
-    #[arg(short, long)]
-    dot_egraph_path: Option<std::path::PathBuf>,
-    #[arg(short, long)]
-    svg_egraph_path: Option<std::path::PathBuf>,
+    #[arg(long)]
+    json: Option<std::path::PathBuf>,
+    #[arg(long)]
+    html: Option<std::path::PathBuf>,
+    #[arg(long)]
+    history: Option<std::path::PathBuf>,
+    #[arg(long, short)]
+    timeout: Option<u64>,
     #[arg(long)]
     keep_functions: bool,
 }
@@ -28,6 +29,14 @@ fn main() -> anyhow::Result<()> {
 
     if args.keep_functions {
         ctx.keep_functions();
+    }
+
+    if args.history.is_some() {
+        ctx.enable_history_collection();
+    }
+
+    if let Some(ms) = args.timeout {
+        ctx.add_timeout(std::time::Duration::from_millis(ms));
     }
 
     // Add egglog and markdown sinks
@@ -66,18 +75,16 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    if let Some(json_egraph_path) = args.json_egraph_path {
+    if let Some(json_egraph_path) = args.json {
         ctx.dump_json(&json_egraph_path)?;
     }
 
-    let serialized = ctx.serialize(SerializeConfig::default());
-
-    if let Some(dot_egraph_path) = args.dot_egraph_path {
-        serialized.to_dot_file(dot_egraph_path)?;
+    if let Some(html_egraph_path) = args.html {
+        ctx.dump_html(&html_egraph_path)?;
     }
 
-    if let Some(svg_egraph_path) = args.svg_egraph_path {
-        serialized.to_svg_file(svg_egraph_path)?;
+    if let Some(history) = args.history {
+        ctx.dump_html_history(&history)?;
     }
 
     Ok(())

@@ -4,5 +4,6 @@
 *.out.egg
 *.out.json
 *.out.svg
+*.out.html
 *.generated.unsat.smt2
 playground.smt2

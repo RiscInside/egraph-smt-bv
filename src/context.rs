@@ -30,6 +30,8 @@ pub struct Context {
     pub(crate) asserts_so_far: usize,
     /// Default plan for the `check-sat` command
     pub(crate) check_sat_plan: Plan,
+    /// E-graph rewriting history
+    pub(crate) rewriting_history: Option<Vec<egraph_serialize::EGraph>>,
     /// True if functions should be kept in the e-graph
     pub(crate) keep_functions: bool,
 }
@@ -82,11 +84,16 @@ impl Context {
             asserts_so_far: 0,
             check_sat_plan: Plan::check_sat_default(None),
             keep_functions: false,
+            rewriting_history: None,
         }
     }
 
     pub fn keep_functions(&mut self) {
         self.keep_functions = true;
+    }
+
+    pub fn enable_history_collection(&mut self) {
+        self.rewriting_history = Some(vec![]);
     }
 
     pub fn add_timeout(&mut self, duration: std::time::Duration) {
@@ -132,10 +139,6 @@ impl Context {
     pub fn run_cmds(&mut self, commands: Vec<egglog::ast::Command>) -> anyhow::Result<()> {
         let rendered = commands.iter().join("\n");
         self.run_code(&rendered, commands)
-    }
-
-    pub fn serialize(&self, config: egglog::SerializeConfig) -> egraph_serialize::EGraph {
-        self.egraph.serialize(config)
     }
 }
 

@@ -68,7 +68,7 @@
 
 ; Constants can pass through `Neg`.
 
-(rewrite (Neg (BvConst x w)) (BvConst (% (- __0 x) (<< __1 w)) w) :subsume :ruleset fold)
+(rewrite (Neg (BvConst x w)) (BvConst (% (- (<< __1 w) x) (<< __1 w)) w) :subsume :ruleset fold)
 
 ; ### Commutativity
 

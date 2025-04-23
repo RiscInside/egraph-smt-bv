@@ -1,3 +1,5 @@
+use std::num::NonZero;
+
 use anyhow::bail;
 use egglog::{
     ast::{
@@ -162,28 +164,31 @@ impl Context {
 
         let mut commands = vec![fun_decl_egglog_command(egglog_name, params.len())];
 
-        if let Sort::BitVec(width) = sort {
-            // Add a rule for computing bitvector width
-            let res = var!("|res|");
-            let args: Vec<Expr> = (0..params.len())
-                .map(|i| var!(&format!("|arg{i}|")))
-                .collect();
+        let width = match sort {
+            Sort::Bool => NonZero::<u32>::new(1).unwrap(),
+            Sort::BitVec(width) => width,
+        };
 
-            commands.push(Command::Rule {
-                name: format!("{name}-width").into(),
-                ruleset: "width".into(),
-                rule: Rule {
-                    span: span!(),
-                    head: GenericActions(vec![Action::Set(
-                        span!(),
-                        "Width".into(),
-                        vec![res.clone()],
-                        lit!(width.get() as i64),
-                    )]),
-                    body: vec![GenericFact::Eq(span!(), res, call!(name, args))],
-                },
-            })
-        }
+        // Add a rule for computing width of the expression
+        let res = var!("|res|");
+        let args: Vec<Expr> = (0..params.len())
+            .map(|i| var!(&format!("|arg{i}|")))
+            .collect();
+
+        commands.push(Command::Rule {
+            name: format!("{name}-width").into(),
+            ruleset: "width".into(),
+            rule: Rule {
+                span: span!(),
+                head: GenericActions(vec![Action::Set(
+                    span!(),
+                    "Width".into(),
+                    vec![res.clone()],
+                    lit!(width.get() as i64),
+                )]),
+                body: vec![GenericFact::Eq(span!(), res, call!(name, args))],
+            },
+        });
 
         self.text(&format!("### Declaration of `{name}`"))?;
         self.newline()?;

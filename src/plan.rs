@@ -184,6 +184,30 @@ impl Context {
         }
     }
 
+    pub fn dump_json(&mut self, path: &PathBuf) -> anyhow::Result<()> {
+        // Clean the e-graph
+        self.run_cmds(vec![
+            Command::Push(1),
+            Command::RunSchedule(GenericSchedule::Run(
+                span!(),
+                RunConfig {
+                    ruleset: "vis".into(),
+                    until: None,
+                },
+            )),
+        ])
+        .unwrap();
+
+        let mut serialized = self.serialize(SerializeConfig::default());
+        serialized.split_classes(|_, node| node.op == "true" || node.op == "false");
+        serialized.saturate_inline_leaves();
+        serialized
+            .to_json_file(path)
+            .context("dumping json for the e-graph")?;
+        self.run_cmds(vec![Command::Pop(span!(), 1)]).unwrap();
+        Ok(())
+    }
+
     fn check_sat_using_tactic(
         &mut self,
         tactic: &Tactic,
@@ -225,24 +249,7 @@ impl Context {
                 Ok(updated)
             }
             Tactic::DumpJson(path) => {
-                // Clean the e-graph
-                self.run_cmds(vec![
-                    Command::Push(1),
-                    Command::RunSchedule(GenericSchedule::Run(
-                        span!(),
-                        RunConfig {
-                            ruleset: "vis".into(),
-                            until: None,
-                        },
-                    )),
-                ])
-                .unwrap();
-
-                let serialized = self.serialize(SerializeConfig::default());
-                serialized
-                    .to_json_file(path)
-                    .context("dumping json for the e-graph")?;
-                self.run_cmds(vec![Command::Pop(span!(), 1)]).unwrap();
+                self.dump_json(path)?;
                 Ok(false)
             }
             Tactic::Log(msg) => {

@@ -66,11 +66,11 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    let serialized = ctx.serialize(SerializeConfig::default());
-
     if let Some(json_egraph_path) = args.json_egraph_path {
-        serialized.to_json_file(json_egraph_path)?;
+        ctx.dump_json(&json_egraph_path)?;
     }
+
+    let serialized = ctx.serialize(SerializeConfig::default());
 
     if let Some(dot_egraph_path) = args.dot_egraph_path {
         serialized.to_dot_file(dot_egraph_path)?;

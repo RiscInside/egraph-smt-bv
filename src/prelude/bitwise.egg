@@ -30,7 +30,6 @@
 ; We can propagate constants through `Not`.
 
 (rewrite (Not (BvAll b w)) (BvAll (not b) w) :ruleset fold)
-(rewrite (Not (B b)) (B (not b)) :ruleset fold)
 
 ; ### Bidirectionality of `Not`
 
@@ -40,8 +39,6 @@
 
 ; ### Pushing constant booleans through And
 
-(rule ((= tt (And a b))) ((union tt a) (union tt b)
-      (subsume (And a b))) :ruleset fold)
 (rule ((= (BvAll true w) (And a b)) (= w (Width a)))
       ((union (And a b) a) (union (And a b) b) (subsume (And a b)))
       :ruleset fold)
@@ -57,25 +54,20 @@
 ; patterns.
 
 (rewrite (And a (BvAll true _)) a :subsume :ruleset fold)
-(rewrite (And a (B true)) a :subsume :ruleset fold)
-
 (rewrite (And a (BvAll false w)) (BvAll false w) :subsume :ruleset fold)
-(rewrite (And a (B false)) (B false) :subsume :ruleset fold)
-
+(rewrite (And (BvAll true _) a) a :subsume :ruleset fold)
+(rewrite (And (BvAll false w) a) (BvAll false w) :subsume :ruleset fold)
 (rewrite (And a a) a :subsume :ruleset fold)
 (rewrite (And a (Not a)) (BvAll false w) :when ((= w (Width a))) :subsume :ruleset fold)
-(rewrite (And a (Not a)) (B false) :when ((Boolean a)) :subsume :ruleset fold)
+(rewrite (And (Not a) a) (BvAll false w) :when ((= w (Width a))) :subsume :ruleset fold)
 
 ; #### O2 rules
 
 ; Contradiction
 
 (rewrite (And (And (Not a) b) a) (BvAll false w) :when ((= w (Width a))) :subsume :ruleset fold)
-(rewrite (And (And (Not a) b) a) (B false) :when ((Boolean a)) :subsume :ruleset fold)
 (rewrite (And (And a b) (Not a)) (BvAll false w) :when ((= w (Width a))) :subsume :ruleset fold)
-(rewrite (And (And a b) (Not a)) (B false) :when ((Boolean a)) :subsume :ruleset fold)
 (rewrite (And (And a b) (And (Not a) c)) (BvAll false w) :when ((= w (Width a))) :subsume :ruleset fold)
-(rewrite (And (And a b) (And (Not a) c)) (B false) :when ((Boolean a)) :subsume :ruleset fold)
 
 ; Subsumption
 

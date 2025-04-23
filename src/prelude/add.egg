@@ -64,7 +64,11 @@
 
 ; Constants can pass through `AddC`. 
 
-(rewrite (AddC (BvConst x w) y) (BvConst (% (+ x y) (<< __1 w)) w) :ruleset fold)
+(rewrite (AddC (BvConst x w) y) (BvConst (% (+ x y) (<< __1 w)) w) :subsume :ruleset fold)
+
+; Constants can pass through `Neg`.
+
+(rewrite (Neg (BvConst x w)) (BvConst (% (- __0 x) (<< __1 w)) w) :subsume :ruleset fold)
 
 ; ### Commutativity
 

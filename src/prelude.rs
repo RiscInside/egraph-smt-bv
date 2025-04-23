@@ -11,8 +11,8 @@ macro_rules! embed {
 fn prelude_logbook() -> Log {
     embed!("prelude/prelude.egg")
         .wrap_in_details()
-        .followed_by(embed!("prelude/core_theory.egg").wrap_in_details())
-        .followed_by(embed!("prelude/bv_theory.egg").wrap_in_details())
+        .followed_by(embed!("prelude/operators.egg").wrap_in_details())
+        .followed_by(embed!("prelude/eq.egg").wrap_in_details())
         .followed_by(embed!("prelude/propositional.egg").wrap_in_details())
         .followed_by(embed!("prelude/bitwise.egg").wrap_in_details())
         .followed_by(embed!("prelude/bpnf.egg").wrap_in_details())

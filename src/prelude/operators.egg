@@ -1,6 +1,49 @@
-; <summary>bv_theory.egg - definitions from the SMT2LIB FixedSizeBitVectors theory</summary>
+; <summary>operators.egg - bitvector and boolean definitions from core SMT2LIB theory</summary>
 
-; ### Moving bits around
+; ### Bitvector constants
+
+; `BvConst` defines bitvector constants of a given width.
+
+(constructor BvConst (BigInt i64) V)
+
+; We also define `(BvAll b w)` to represent all-zero/all-one bitvectors
+; of width `w` (`b = false` for all-zeros and `b = true` for all-ones).
+
+(constructor BvAll (bool i64) V)
+
+; `(BvAll false w)` is equivalent to `(BvConst 0 _w)
+
+(birewrite (BvAll false w) (BvConst __0 w) :ruleset fold)
+
+; ### Boolean constants
+
+; Booleans are isomorphic to bitvectors of width 1
+
+(let tt (BvAll true 1))
+(let ff (BvAll false 1))
+(union tt (BvConst __1 1))
+(union ff (BvConst __0 1))
+
+; ### Equality
+
+(constructor Equal (V V) V)
+
+; ### Bitwise operators
+
+(constructor Not (V) V)
+(constructor Implies (V V) V)
+(constructor And (V V) V)
+(constructor Or (V V) V)
+(constructor Xor (V V) V)
+(constructor Nand (V V) V)
+(constructor Nor (V V) V)
+(constructor XNor (V V) V)
+
+; ### If-then-else operator
+
+(constructor ITE (V V V) V)
+
+; ### Operators for moving bits around
 
 (constructor Concat (V V) V)
 (constructor Extract (i64 i64 V) V)
@@ -22,12 +65,6 @@
 
 ; Some of these support left-associative chaining, but this is handled fully
 ; by Rust code
-
-; #### Bitwise logical operators
-
-(constructor Nand (V V) V)
-(constructor Nor (V V) V)
-(constructor XNor (V V) V)
 
 ; #### Arithmetic operators
 
@@ -55,31 +92,12 @@
 (constructor Sge (V V) V)
 (constructor Sgt (V V) V)
 
-; ### Bitvector constants
-
-; `BvConst` defines bitvector constants of a given width.
-
-(constructor BvConst (BigInt i64) V)
-
-; We also define `(BvAll b w)` to represent all-zero/all-one bitvectors
-; of width `w` (`b = false` for all-zeros and `b = true` for all-ones).
-
-(constructor BvAll (bool i64) V)
-
-; `(BvAll false w)` is equivalent to `(BvConst 0 _w)
-
-(birewrite (BvAll false w) (BvConst __0 w) :ruleset fold)
-
 ; #### Constants are always positive
 
 ; This is a simple check that every computed `BvConst` is positive. Negative signed values should
 ; be represented as their (positive) twos-complement representation.
 
 (rule ((BvConst a _) (< a __0)) ((panic "Negative constant detected. This is a constant fold bug")))
-
-; #### Different constants are not equal.
-
-(rewrite (Equal (BvConst a w) (BvConst b _)) ff :when ((!= a b)) :subsume :ruleset fold)
 
 ; ### `Width` of bit-vectors
 
@@ -98,6 +116,8 @@
 
 ; We define width propagation rules for basic primitives. This mostly resemble
 ; ones implemented in the Rust sort checker.
+
+(rule ((= e (Equal x y))) ((set (Width e) 1)) :ruleset width)
 
 (rule ((= e (ITE c e1 e2)) (= w1 (Width e1))) ((set (Width e) w1)) :ruleset width)
 (rule ((= e (ITE c e1 e2)) (= w2 (Width e2))) ((set (Width e) w2)) :ruleset width)

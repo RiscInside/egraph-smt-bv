@@ -1,0 +1,41 @@
+; <summary>eq.egg - Equality operator desugaring/rules</summary>
+
+; ### Variadic equality/disequality operators
+
+(constructor AllEqual (VS) V :unextractable)
+(constructor AllDistinct (VS) V :unextractable)
+(rule ((= e (AllEqual vs))) ((delete (AllEqual vs))) :ruleset post-desugar)
+(rule ((= e (AllDistinct vs))) ((delete (AllDistinct vs))) :ruleset post-desugar)
+
+; ### `AllEqual`/`AllDistinct` desugaring
+
+(rewrite (AllEqual (VSCons v (VSNil))) tt :ruleset desugar)
+(rewrite (AllEqual (VSCons v1 (VSCons v2 vs)))
+         (And (Equal v1 v2) (AllEqual (VSCons v2 vs))) :ruleset desugar)
+
+(constructor AllDistinctFrom (V VS) V :unextractable)
+(rule ((AllDistinctFrom v vs)) ((delete (AllDistinctFrom v vs))) :ruleset post-desugar)
+
+(rewrite (AllDistinct (VSNil)) tt :ruleset desugar)
+(rewrite (AllDistinct (VSCons v vs))
+         (And (AllDistinctFrom v vs) (AllDistinct vs)) :ruleset desugar)
+(rewrite (AllDistinctFrom v (VSNil)) tt :ruleset desugar)
+(rewrite (AllDistinctFrom v (VSCons v1 vs))
+          (And (Not (Equal v v1)) (AllDistinctFrom v vs)) :ruleset desugar)
+
+; ### Promoting equality to e-graph equality
+
+; This is a part of a special `eq` ruleset that can introduce
+; arbitrary cycles (it's enough for the user to add (assert (= foo bar))
+; to get  a cycle in the e-graph)
+
+(rule ((= tt (Equal e1 e2))) ((union e1 e2)) :ruleset eq)
+
+; ## Simplifying equalities
+
+(rewrite (Equal e e) tt :subsume :ruleset fold)
+(rewrite (Equal (BvConst a w) (BvConst b w)) ff :subsume :ruleset fold :when ((!= a b)))
+
+; ## Removing redundant Eq e-nodes
+
+(rule ((= tt (Equal v v))) ((delete (Equal v v))) :ruleset fold)

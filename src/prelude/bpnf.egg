@@ -31,6 +31,12 @@
 (rewrite (RotateRight i e) (Concat (Extract (- i 1) 0 e) (Extract (- w 1) i e)) :when ((> i 0) (= w (Width e)) (< i w)) :ruleset desugar)
 (rewrite (RotateLeft i e) (Concat (Extract (- (- w i) 1) 0 e) (Extract (- w 1) (- w i) e)) :when ((> i 0) (= w (Width e)) (< i w)) :ruleset desugar)
 
+; ### Validating extract indicies
+
+(rule ((Extract i j a) (= w (Width a)) (>= i w)) ((panic "Extract i index out of range")) :ruleset fold)
+(rule ((Extract i j _) (< i j)) ((panic "Extract indices out of order")) :ruleset fold)
+(rule ((Extract i j _) (< i 0)) ((panic "Extract indices can't be negative")) :ruleset fold)
+
 ; ### Reassociating concats
 
 (rewrite (Concat a (Concat b c)) (Concat (Concat a b) c) :subsume :ruleset fold)
@@ -60,11 +66,6 @@
 (rule ((= e (Concat (Extract i (+ 1 j) a) (Extract j k a))))
       ((union e (Extract i k a))
        (subsume (Concat (Extract i (+ 1 j) a) (Extract j k a)))) :ruleset fold)
-
-; ### Equality from two adjacent extractions
-
-(rule ((= (Extract ia (+ 1 ja) a) (Extract ib (+ 1 jb) b)) (= (Extract ja ka a) (Extract jb kb b))) 
-((union (Extract ia ka a) (Extract ib kb b))) :ruleset safe)
 
 ; ### Equality of two concats
 

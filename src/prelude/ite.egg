@@ -9,6 +9,10 @@
 
 (rewrite (ITE cond x x) x :subsume :ruleset fold)
 
+; ### Boolean if-then-else
+
+(rewrite (ITE cond tt ff) cond :subsume :ruleset fold)
+
 ; ### Pushdown rules for operators
 
 (rewrite (ITE cond (Not e1) (Not e2)) (Not (ITE cond e1 e2)) :ruleset safe)

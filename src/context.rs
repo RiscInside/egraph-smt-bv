@@ -61,7 +61,7 @@ impl Context {
     pub(crate) fn run_log(&mut self, log: &Log) -> anyhow::Result<()> {
         for (item, newline) in log.items.iter() {
             match item {
-                LogItem::Egglog { code, commands } => self
+                LogItem::Egglog { code, commands, .. } => self
                     .run_code(code, commands.clone())
                     .context("Failed to execute log")?,
                 LogItem::RawText { text } => self.text(text)?,

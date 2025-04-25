@@ -40,4 +40,21 @@ impl Log {
             *b = true;
         }
     }
+
+    pub(crate) fn add_text_line(&mut self, new_text: &str) {
+        match self.items.last_mut() {
+            Some((_, true) | (LogItem::Egglog { .. }, false)) | None => {
+                self.items.push((
+                    LogItem::RawText {
+                        text: new_text.trim_end().to_owned(),
+                    },
+                    false,
+                ));
+            }
+            Some((LogItem::RawText { text }, false)) => {
+                text.push('\n');
+                text.push_str(new_text.trim_end());
+            }
+        }
+    }
 }

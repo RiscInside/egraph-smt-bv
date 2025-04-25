@@ -98,7 +98,7 @@
 ; be represented as their (positive) twos-complement representation.
 
 (rule ((BvConst a _) (< a __0)) ((panic "Negative constant detected. This is a constant fold bug")) :ruleset fold)
-(rule ((BvConst a w) (>= a (<< __1 w))) ((panic "Constant is too big/ This is a constant folding bug")) :ruleset fold)
+(rule ((BvConst a w) (>= a (<< __1 w))) ((panic "Constant is too big. This is a constant folding bug")) :ruleset fold)
 
 ; ### `Width` of bit-vectors
 

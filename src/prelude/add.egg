@@ -25,6 +25,9 @@
 
 (constructor AddC (V BigInt) V)
 
+(rule ((AddC _ a) (< a __0)) ((panic "Negative constant in AddC detected")) :ruleset fold)
+(rule ((= w (Width x)) (AddC x a) (>= a (<< __1 w))) ((panic "Constant in AddC is too big")) :ruleset fold)
+
 (rule ((= e (AddC e1 _)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
 
 ; We convert constant additions to `AddC`.
@@ -47,11 +50,11 @@
 
 ; `AddC` can also travel through `Neg`.
 
-(rewrite (Neg (AddC x v)) (AddC (Neg x) (- (<< __1 w) v)) :when ((= w (Width x))) :ruleset safe)
+(rewrite (Neg (AddC x v)) (AddC (Neg x) (% (- (<< __1 w) v) (<< __1 w))) :when ((= w (Width x))) :ruleset safe)
 
 ; `AddC` can go in both directions.
 
-(rule ((= x (AddC y v)) (= w (Width y))) ((union y (AddC x (- (<< __1 w) v)))) :ruleset safe)
+(rule ((= x (AddC y v)) (= w (Width y))) ((union y (AddC x (% (- (<< __1 w) v) (<< __1 w))))) :ruleset safe)
 
 ; ### Going from `Neg` to `Not` and back
 
@@ -62,7 +65,7 @@
 
 ; ### Constant folding
 
-; Constants can pass through `AddC`. 
+; Constants can pass through `AddC`.
 
 (rewrite (AddC (BvConst x w) y) (BvConst (% (+ x y) (<< __1 w)) w) :subsume :ruleset fold)
 

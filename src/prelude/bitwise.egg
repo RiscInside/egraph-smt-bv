@@ -121,3 +121,8 @@
 ; `Not` rule is implemented with XOR to prevent introduction of leading 1 bits.
 
 (rewrite (Not (BvConst a w)) (BvConst (^ (- (<< __1 w) __1) a) w) :subsume :ruleset fold)
+
+; Some rewrite rules for one bit bitvectors
+
+(rewrite (Equal a (BvAll true 1)) a :subsume :ruleset fold)
+(rewrite (Equal a (BvAll false 1)) (Not a) :ruleset fold)

@@ -112,3 +112,6 @@
 (rewrite (Extract i 0 (Add (Concat _1 a) (Concat _2 b))) (Add a b) :when ((= (+ i 1) (Width a)) (= (Width a) (Width b))) :ruleset fold)
 (rewrite (Extract i 0 (And (Concat _1 a) (Concat _2 b))) (Add a b) :when ((= (+ i 1) (Width a)) (= (Width a) (Width b))) :ruleset fold)
 (rewrite (Extract i 0 (Not (Concat _1 a))) (Not a) :when ((= (+ i 1) (Width a))) :ruleset fold)
+(rewrite (Extract i 0 (Neg (Concat _1 a))) (Neg a) :when ((= (+ i 1) (Width a))) :ruleset fold)
+(rewrite (Extract i 0 (AddC (Concat _1 a) v)) (AddC a (% v (<< __1 w))) :when ((= w (Width a)) (= i (- w 1))) :ruleset fold)
+(rewrite (Extract i 0 (MulC (Concat _1 a) v)) (MulC a (% v (<< __1 w))) :when ((= w (Width a)) (= i (- w 1))) :ruleset fold)

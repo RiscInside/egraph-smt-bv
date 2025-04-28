@@ -36,6 +36,9 @@
 ; `MulC` can travel through `Add`
 (rewrite (MulC (Add x y) a) (Add (MulC x a) (MulC y a)) :ruleset safe)
 
+; `MulC` can travel through `Mul`
+(rewrite (Mul (MulC x v) y) (MulC (Mul x y) v) :ruleset safe)
+
 ; ### Constant-folding
 (rewrite (MulC (BvConst a w) b) (BvConst (% (* a b) (<< __1 w)) w) :subsume :ruleset fold)
 
@@ -47,6 +50,7 @@
 
 ; ### Distributivity
 (birewrite (Mul a (Add b c)) (Add (Mul a b) (Mul a c)) :ruleset unsafe)
+(birewrite (Mul a (AddC b v)) (Add (Mul a b) (MulC a v)) :ruleset unsafe)
 
 ; ### Pushing negations upwards
 (rewrite (Mul (Neg a) b) (Neg (Mul a b)) :ruleset safe)

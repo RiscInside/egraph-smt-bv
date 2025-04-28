@@ -106,12 +106,13 @@
 
 (rewrite (Extract i j (BvConst a w)) (BvConst (>> (& a (- (<< __1 (+ i 1)) __1)) j) (+ 1 (- i j))) :subsume :ruleset fold)
 
-; ### Redundant extact/zero-extensions
+; ### Pushing extracts through operators
 
-(rewrite (Extract i 0 (Mul (Concat _1 a) (Concat _2 b))) (Mul a b) :when ((= (+ i 1) (Width a)) (= (Width a) (Width b))) :ruleset fold)
-(rewrite (Extract i 0 (Add (Concat _1 a) (Concat _2 b))) (Add a b) :when ((= (+ i 1) (Width a)) (= (Width a) (Width b))) :ruleset fold)
-(rewrite (Extract i 0 (And (Concat _1 a) (Concat _2 b))) (And a b) :when ((= (+ i 1) (Width a)) (= (Width a) (Width b))) :ruleset fold)
-(rewrite (Extract i 0 (Not (Concat _1 a))) (Not a) :when ((= (+ i 1) (Width a))) :ruleset fold)
-(rewrite (Extract i 0 (Neg (Concat _1 a))) (Neg a) :when ((= (+ i 1) (Width a))) :ruleset fold)
-(rewrite (Extract i 0 (AddC (Concat _1 a) v)) (AddC a (% v (<< __1 w))) :when ((= w (Width a)) (= i (- w 1))) :ruleset fold)
-(rewrite (Extract i 0 (MulC (Concat _1 a) v)) (MulC a (% v (<< __1 w))) :when ((= w (Width a)) (= i (- w 1))) :ruleset fold)
+(rewrite (Extract i 0 (Mul a b)) (Mul (Extract i 0 a) (Extract i 0 b)) :ruleset safe)
+(rewrite (Extract i 0 (Add a b)) (Add (Extract i 0 a) (Extract i 0 b)) :ruleset safe)
+(rewrite (Extract i 0 (And a b)) (And (Extract i 0 a) (Extract i 0 b)) :ruleset safe)
+(rewrite (Extract i 0 (Not a)) (Not (Extract i 0 a)) :ruleset safe)
+(rewrite (Extract i 0 (Neg a)) (Neg (Extract i 0 a)) :ruleset safe)
+(rewrite (Extract i 0 (AddC a v)) (AddC (Extract i 0 a) (% v (<< __2 i))) :ruleset safe)
+(rewrite (Extract i 0 (MulC a v)) (MulC (Extract i 0 a) (% v (<< __2 i))) :ruleset safe)
+(rewrite (Extract i 0 (ITE cond a b)) (ITE cond (Extract i 0 a) (Extract i 0 b)) :ruleset safe)

@@ -62,9 +62,11 @@ impl Plan {
         // Build the main reasoning block based on repetition
         let repeat_block = Plan::Seq(vec![
             Plan::Saturate(vec![
-                Plan::Leaf(Tactic::RunRuleset(Symbol::from("width"))),
-                Plan::Leaf(Tactic::RunRuleset(Symbol::from("eq"))),
-                Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold"))),
+                Plan::Saturate(vec![
+                    Plan::Leaf(Tactic::RunRuleset(Symbol::from("width"))),
+                    Plan::Leaf(Tactic::RunRuleset(Symbol::from("eq"))),
+                    Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold"))),
+                ]),
                 Plan::Leaf(Tactic::RunRuleset(Symbol::from("safe"))),
             ]),
             Plan::Leaf(Tactic::RunRuleset(Symbol::from("unsafe"))),

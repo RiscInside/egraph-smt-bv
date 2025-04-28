@@ -29,3 +29,13 @@
 (rewrite (ITE cond (Concat e1 e2) (Concat e3 e4))
          (Concat (ITE cond e1 e3) (ITE cond e2 e4))
          :when ((= (Width e1) (Width e3))) :ruleset safe)
+
+; #### Nested if-then-else
+
+(rewrite (ITE cond (ITE cond x y) z) (ITE cond x z) :subsume :ruleset fold)
+(rewrite (ITE cond x (ITE cond y z)) (ITE cond x y) :subsume :ruleset fold)
+
+; #### More general version
+
+(rewrite (ITE a (ITE b x y) x) (ITE (Or a b) x y) :ruleset safe)
+(rewrite (ITE a x (ITE b x y)) (ITE (Or a b) x y) :ruleset safe)

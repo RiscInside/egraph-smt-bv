@@ -7,8 +7,8 @@
 
 (rule ((= e (MulC e1 _)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
 
-(rewrite (Mul e (BvConst v _ )) (MulC e v) :ruleset fold)
-(rewrite (Mul (BvConst v _ ) e) (MulC e v) :ruleset fold)
+(rewrite (Mul e (BvConst v _ )) (MulC e v) :subsume :ruleset fold)
+(rewrite (Mul (BvConst v _ ) e) (MulC e v) :subsume :ruleset fold)
 
 ; Multiplying by 0 returns 0
 (rewrite (MulC e __0) (BvConst __0 w) :subsume :ruleset fold :when ((= w (Width e))))
@@ -24,7 +24,7 @@
 (birewrite (MulC e __2) (Add e e) :ruleset fold)
 
 ; We can collapse multiple `MulC`s together
-(rewrite (MulC (MulC x p) q) (MulC x (% (* p q) (<< __1 w))) :when ((= w (Width x))) :ruleset fold)
+(rewrite (MulC (MulC x p) q) (MulC x (% (* p q) (<< __1 w))) :when ((= w (Width x))) :ruleset safe)
 (rewrite (MulC (Neg x) v) (MulC x (- (<< __1 w) v)) :when ((= w (Width x))) :ruleset fold)
 
 ; We can add `x*a` and x together
@@ -56,3 +56,9 @@
 (rewrite (Mul (Neg a) b) (Neg (Mul a b)) :ruleset safe)
 (rewrite (Mul a (Neg b)) (Neg (Mul a b)) :ruleset safe)
 (rewrite (Mul (Neg a) (Neg b)) (Mul a b) :ruleset fold)
+
+; ### Deducing 0 from equality of MulCs
+(rewrite (MulC a v) (BvConst __0 w) :when ((= a (MulC a v)) (= w (Width a)) (!= v __1)) :ruleset fold)
+
+; ### Shift-like Concat into MulC
+(rewrite (Concat (Extract (- w (+ shift 1)) 0 a) (BvAll false shift)) (MulC a (<< __1 shift)) :when ((= w (Width a))) :ruleset safe)

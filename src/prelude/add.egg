@@ -7,8 +7,8 @@
 
 ; ### Pushing negations down
 
-(rewrite (Neg (Add a b)) (Add (Neg a) (Neg b)) :subsume :ruleset safe)
-(rewrite (Neg (Neg a)) a :subsume :ruleset safe)
+(rewrite (Neg (Add a b)) (Add (Neg a) (Neg b)) :ruleset safe)
+(rewrite (Neg (Neg a)) a :ruleset safe)
 
 ; ### Cancellation
 
@@ -41,7 +41,7 @@
 
 ; We can collapse multiple `AddC`s together.
 
-(rewrite (AddC (AddC x p) q) (AddC x (% (+ p q) (<< __1 w))) :when ((= w (Width x))) :subsume :ruleset fold)
+(rewrite (AddC (AddC x p) q) (AddC x (% (+ p q) (<< __1 w))) :when ((= w (Width x))) :ruleset fold)
 
 ; `AddC` can travel through `Add`.
 

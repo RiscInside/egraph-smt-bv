@@ -55,7 +55,7 @@
 
 ; ### Pushing extract through itself
 
-(rewrite (Extract i1 j1 (Extract _ j2 x)) (Extract (+ i1 j2) (+ j1 j2) x) :subsume :ruleset fold)
+(rewrite (Extract i1 j1 (Extract _ j2 x)) (Extract (+ i1 j2) (+ j1 j2) x) :ruleset fold)
 
 ; ### Full width extractions
 

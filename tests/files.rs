@@ -78,6 +78,10 @@ fn run_yosys_scripts(pattern: &'static str) {
     for yosys_script_path in glob(pattern).unwrap().map(Result::unwrap) {
         let expected_output = expected_smt2_filename(&yosys_script_path);
 
+        if expected_output.exists() {
+            continue;
+        }
+
         eprintln!(
             "Generating SMT2LIB file `{}` from yosys script `{}`",
             expected_output.display(),

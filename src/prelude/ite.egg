@@ -15,20 +15,20 @@
 
 ; ### Pushdown rules for operators
 
-(rewrite (ITE cond (Not e1) (Not e2)) (Not (ITE cond e1 e2)) :ruleset safe)
+(rewrite (ITE cond (Not e1) (Not e2)) (Not (ITE cond e1 e2)) :ruleset unsafe)
 
 (rewrite (ITE cond (And e1 e2) (And e3 e4))
-         (And (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset safe)
+         (And (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset unsafe)
 
 (rewrite (ITE cond (Add e1 e2) (Add e3 e4))
-         (Add (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset safe)
+         (Add (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset unsafe)
 
 (rewrite (ITE cond (Mul e1 e2) (Mul e3 e4))
-         (Mul (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset safe)
+         (Mul (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset unsafe)
 
 (rewrite (ITE cond (Concat e1 e2) (Concat e3 e4))
          (Concat (ITE cond e1 e3) (ITE cond e2 e4))
-         :when ((= (Width e1) (Width e3))) :ruleset safe)
+         :when ((= (Width e1) (Width e3))) :ruleset unsafe)
 
 ; #### Nested if-then-else
 
@@ -37,5 +37,5 @@
 
 ; #### More general version
 
-(rewrite (ITE a (ITE b x y) x) (ITE (Or a b) x y) :ruleset safe)
-(rewrite (ITE a x (ITE b x y)) (ITE (Or a b) x y) :ruleset safe)
+(rewrite (ITE a (ITE b x y) x) (ITE (Or a b) x y) :ruleset unsafe)
+(rewrite (ITE a x (ITE b x y)) (ITE (Or a b) x y) :ruleset unsafe)

@@ -5,77 +5,47 @@
 (rewrite (Sub a b) (Add a (Neg b)) :ruleset desugar)
 (rule ((Sub a b)) ((delete (Sub a b))) :ruleset post-desugar)
 
-; ### Pushing negations down
-
-(rewrite (Neg (Add a b)) (Add (Neg a) (Neg b)) :ruleset safe)
-(rewrite (Neg (Neg a)) a :ruleset safe)
-
 ; ### Cancellation
 
 (rewrite (Add a (Neg a)) (BvConst __0 w) :when ((= w (Width a))) :subsume :ruleset fold)
 
-; ### Constant addition
+; ### Adding 0
 
-; Negation <-> bitwise-not rules produce many +1/-1 additions. Those are then combined in many
-; different ways by associativity/commutativity rewrites for addition, causing the e-graph to
-; blow up.
-
-; To solve this, we add a custom operator for adding constants that can be pushed upwards
-; through `Add` and `Neg`.
-
-(constructor AddC (V BigInt) V)
-
-(rule ((AddC _ a) (< a __0)) ((panic "Negative constant in AddC detected")) :ruleset fold)
-(rule ((= w (Width x)) (AddC x a) (>= a (<< __1 w))) ((panic "Constant in AddC is too big")) :ruleset fold)
-
-(rule ((= e (AddC e1 _)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
-
-; We convert constant additions to `AddC`.
-
-(rewrite (Add x (BvConst v _)) (AddC x v) :subsume :ruleset fold)
-(rewrite (Add (BvConst v _) x) (AddC x v) :subsume :ruleset fold)
-
-; Adding 0 has no effect.
-
-(rewrite (AddC x __0) x :subsume :ruleset fold)
-
-; We can collapse multiple `AddC`s together.
-
-(rewrite (AddC (AddC x p) q) (AddC x (% (+ p q) (<< __1 w))) :when ((= w (Width x))) :ruleset fold)
-
-; `AddC` can travel through `Add`.
-
-(rewrite (Add (AddC x v) y) (AddC (Add x y) v) :ruleset safe)
-(rewrite (Add x (AddC y v)) (AddC (Add x y) v) :ruleset safe)
-
-; `AddC` can also travel through `Neg`.
-
-(rewrite (Neg (AddC x v)) (AddC (Neg x) (% (- (<< __1 w) v) (<< __1 w))) :when ((= w (Width x))) :ruleset safe)
-
-; `AddC` can go in both directions.
-
-(rule ((= x (AddC y v)) (= w (Width y))) ((union y (AddC x (% (- (<< __1 w) v) (<< __1 w))))) :ruleset safe)
+(rewrite (Add x (BvConst __0 _)) x :subsume :ruleset fold)
 
 ; ### Going from `Neg` to `Not` and back
 
-; We can now use `AddC` operator to lower `Neg` and `Not`.
+; We can now use `Add` operator to convert between `Neg` and `Not`.
 
-(rewrite (Neg e) (AddC (Not e) __1) :ruleset safe)
-(rewrite (Not e) (AddC (Neg e) (- (<< __1 w) __1)) :when ((= w (Width e))) :ruleset safe)
+(rewrite (Neg e) (Add (Not e) (BvConst __1 w)) :when ((= w (Width e))) :ruleset unsafe)
+(rewrite (Not e) (Add (Neg e) (BvConst (- (<< __1 w) __1) w)) :when ((= w (Width e))) :ruleset unsafe)
 
 ; ### Constant folding
 
-; Constants can pass through `AddC`.
+; Constants can pass through `Add`.
 
-(rewrite (AddC (BvConst x w) y) (BvConst (% (+ x y) (<< __1 w)) w) :subsume :ruleset fold)
+(rewrite (Add (BvConst x w) (BvConst y w)) (BvConst (% (+ x y) (<< __1 w)) w) :subsume :ruleset fold)
 
 ; Constants can pass through `Neg`.
 
 (rewrite (Neg (BvConst x w)) (BvConst (% (- (<< __1 w) x) (<< __1 w)) w) :subsume :ruleset fold)
 
+; ### Merge-only associativity/commutativity rules
+
+(rule ((= lhs (Add a (Add b c))) (= rhs (Add (Add a b) c))) ((union lhs rhs)) :ruleset fold)
+(rule ((= lhs (Add a b)) (= rhs (Add b a))) ((union lhs rhs)) :ruleset fold)
+
 ; ### Commutativity
 
 (rewrite (Add a b) (Add b a) :ruleset safe)
+
+; ### Bubbling constants upwards (safely)
+
+(rewrite (Add (Add x (BvConst a w)) (BvConst b w)) (Add x (BvConst (% (+ a b) (<< __1 w)) w)) :ruleset safe)
+
+; To make this rule safe, we need to also discover contradictions in timely matter.
+
+(rule ((= x (Add x (BvConst a _))) (!= a __0)) ((set (ProvenUnsat) true)) :ruleset fold)
 
 ; ### Explosive associativity
 
@@ -83,13 +53,17 @@
 
 ; ### Double negation elimination
 
-(rewrite (Neg (Neg a)) a :subsume :ruleset fold)
+(rewrite (Neg (Neg a)) a :ruleset fold)
+
+; ### Pushing negations through `Add`
+
+(rewrite (Neg (Add a b)) (Add (Neg a) (Neg b)) :ruleset unsafe)
 
 ; ### Unfolding one step of `Add`
 
 ; Pathological case when bitvector has width 1.
 
-(rewrite (Add a b) (Xor a b) :subsume :when ((= (Width a) 1)) :ruleset fold)
+(rewrite (Add a b) (Xor a b) :when ((= (Width a) 1)) :ruleset fold)
 
 ; The rule below does one half-adder step. It is highly explosive, so it goes into `once` ruleset - it is unlikely we will get a lot from applying it more than once.
 
@@ -97,7 +71,7 @@
 
 ; ### Recovering equivalences from Add
 
-(rule ((= (Add x z) (Add y z))) ((union x y)) :ruleset fold)
+(rule ((= e (Add x z)) (= e (Add y z)) (!= x y)) ((union x y)) :ruleset fold)
 
 ; ### Combining zero-extensions
 
@@ -106,7 +80,3 @@
 ; ### Pushing zero-extensions outwards
 
 (rewrite (ZeroExtend n (Add (ZeroExtend n1 a) (ZeroExtend n2 b))) (Add (ZeroExtend (+ n n1) a) (ZeroExtend (+ n n2) b)) :ruleset safe)
-
-; ### Pushing zero-extensions inwards
-
-(rewrite (Add (ZeroExtend n1 e1) (ZeroExtend n2 e2)) (ZeroExtend (- n1 1) (Add (ZeroExtend 1 e1) (ZeroExtend (- n2 (- n1 1)) e2))) :ruleset safe :when ((<= n1 n2) (< 1 n1)))

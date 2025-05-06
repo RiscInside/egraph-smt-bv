@@ -113,6 +113,4 @@
 (rewrite (Extract i 0 (And a b)) (And (Extract i 0 a) (Extract i 0 b)) :ruleset safe)
 (rewrite (Extract i 0 (Not a)) (Not (Extract i 0 a)) :ruleset safe)
 (rewrite (Extract i 0 (Neg a)) (Neg (Extract i 0 a)) :ruleset safe)
-(rewrite (Extract i 0 (AddC a v)) (AddC (Extract i 0 a) (% v (<< __2 i))) :ruleset safe)
-(rewrite (Extract i 0 (MulC a v)) (MulC (Extract i 0 a) (% v (<< __2 i))) :ruleset safe)
 (rewrite (Extract i 0 (ITE cond a b)) (ITE cond (Extract i 0 a) (Extract i 0 b)) :ruleset safe)

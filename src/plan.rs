@@ -1,6 +1,8 @@
 //! Plans for the `egraph-smt-bv` solver.
 //! This currently mostly mimics egglog schedules, but more elaborate tactics can be added in the future.
 
+use std::path::PathBuf;
+
 use crate::{Context, LogStream, SATStatus};
 use anyhow::{bail, Context as _};
 use egglog::{
@@ -10,7 +12,6 @@ use egglog::{
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use smt2parser::concrete::{Constant, SExpr};
-use std::path::PathBuf;
 
 lazy_static! {
     static ref PROVEN_UNSAT: Expr = call!("ProvenUnsat", []);
@@ -24,6 +25,10 @@ pub(crate) enum Tactic {
     RunRuleset(Symbol),
     /// Dump the current e-graph to a json file
     DumpJson(PathBuf),
+    /// Dump the current e-graph html to a file
+    DumpHtml(PathBuf),
+    /// Dump the current e-graph history to a file
+    DumpHtmlHistory(PathBuf),
     /// Print a message to the log
     Log(String),
 }
@@ -133,6 +138,18 @@ impl Plan {
                 let path = PathBuf::from(path);
                 Ok(Plan::Leaf(Tactic::DumpJson(path)))
             }
+            [SExpr::Symbol(name), SExpr::Constant(Constant::String(path))]
+                if name.0 == "dump-html" =>
+            {
+                let path = PathBuf::from(path);
+                Ok(Plan::Leaf(Tactic::DumpHtml(path)))
+            }
+            [SExpr::Symbol(name), SExpr::Constant(Constant::String(path))]
+                if name.0 == "dump-html-history" =>
+            {
+                let path = PathBuf::from(path);
+                Ok(Plan::Leaf(Tactic::DumpHtmlHistory(path)))
+            }
             [SExpr::Symbol(name), SExpr::Constant(Constant::String(msg))] if name.0 == "log" => {
                 Ok(Plan::Leaf(Tactic::Log(msg.clone())))
             }
@@ -223,8 +240,6 @@ impl Context {
                     panic!("Unsoundness detected during rebuilding");
                 }
 
-                self.check_for_unsat()?;
-
                 if updated && self.rewriting_history.is_some() {
                     let serialized = self.serialize()?;
                     if let Some(history) = &mut self.rewriting_history {
@@ -232,10 +247,20 @@ impl Context {
                     }
                 }
 
+                self.check_for_unsat()?;
+
                 Ok(updated)
             }
             Tactic::DumpJson(path) => {
                 self.dump_json(path)?;
+                Ok(false)
+            }
+            Tactic::DumpHtml(path) => {
+                self.dump_html(path)?;
+                Ok(false)
+            }
+            Tactic::DumpHtmlHistory(path) => {
+                self.dump_html_history(path)?;
                 Ok(false)
             }
             Tactic::Log(msg) => {

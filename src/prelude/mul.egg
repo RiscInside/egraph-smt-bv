@@ -13,38 +13,28 @@
 ; Multiplying by 2 is the same as adding twice
 (birewrite (Mul e (BvConst __2 w)) (Add e e) :when ((= w (Width e)) (> w 1)) :ruleset fold)
 
-; Bubbling up constants
-(rewrite (Mul (Mul x (BvConst p w)) (BvConst q w)) (Mul x (BvConst (% (* p q) (<< __1 w)) w)) :ruleset safe)
-
-; Combining a*x + x into (a + 1)*x
-(rewrite (Add (Mul x (BvConst a w)) x) (Mul x (BvConst (% (+ a __1) (<< __1 w)) w)) :ruleset safe)
-
-; Combining a*x + b*x into (a + b)*x
-(rewrite (Add (Mul x (BvConst a w)) (Mul x (BvConst b w))) (Mul x (BvConst (% (+ a b) (<< __1 w)) w)) :ruleset safe)
-
 ; ### Constant-folding
 (rewrite (Mul (BvConst a w) (BvConst b w)) (BvConst (% (* a b) (<< __1 w)) w) :subsume :ruleset fold)
 
-; ### Merge-only commutativity and associativity rules
-(rule ((= lhs (Mul a (Mul b c))) (= rhs (Mul (Mul a b) c))) ((union lhs rhs)) :ruleset fold)
-(rule ((= lhs (Mul a b)) (= rhs (Mul b a))) ((union lhs rhs)) :ruleset fold)
+; ### Merge-only associativity rules
+(rule ((= lhs (Mul a (Mul b c))) (= rhs (Mul (Mul a b) c)) (!= lhs rhs)) ((union lhs rhs)) :ruleset fold)
 
 ; ### Commutativity
 (rewrite (Mul a b) (Mul b a) :ruleset safe)
 
 ; ### Explosive associativity
-(birewrite (Mul a (Mul b c)) (Mul (Mul a b) c) :ruleset unsafe)
+(birewrite (Mul a (Mul b c)) (Mul (Mul a b) c) :ruleset explosive)
 
 ; ### Distributivity
-(birewrite (Mul a (Add b c)) (Add (Mul a b) (Mul a c)) :ruleset unsafe)
+(birewrite (Mul a (Add b c)) (Add (Mul a b) (Mul a c)) :ruleset explosive)
 
 ; ### Pushing negations upwards
-(rewrite (Mul (Neg a) b) (Neg (Mul a b)) :ruleset unsafe)
-(rewrite (Mul a (Neg b)) (Neg (Mul a b)) :ruleset unsafe)
+(rewrite (Mul (Neg a) b) (Neg (Mul a b)) :ruleset explosive)
+(rewrite (Mul a (Neg b)) (Neg (Mul a b)) :ruleset explosive)
 (rewrite (Mul (Neg a) (Neg b)) (Mul a b) :ruleset fold)
 
 ; ### Deducing 0 from equality of Muls
 (rule ((= (BvConst __0 w) (Mul a (BvConst v w))) (!= (% v __2) __0)) ((union a (BvConst __0 w))) :ruleset fold)
 
 ; ### Shift-like Concat into Mul
-(rewrite (Concat (Extract (- w (+ shift 1)) 0 a) (BvAll false shift)) (Mul a (BvConst (% (<< __1 shift) (<< __1 w)) w)) :when ((= w (Width a))) :ruleset safe)
+(rewrite (Concat (Extract (- w (+ shift 1)) 0 a) (BvAll false shift)) (Mul a (BvConst (% (<< __1 shift) (<< __1 w)) w)) :when ((= w (Width a))) :ruleset slow)

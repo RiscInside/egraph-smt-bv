@@ -83,18 +83,18 @@
        (union b (Extract (- bw 1) 0 d))
        (union (Extract (- (- dw bw) 1) 0 a) (Extract (- dw 1) bw d))
        (union c (Extract (- aw 1) (- dw bw) a))
-      ) :ruleset safe)
+      ) :ruleset slow)
 
 ; ### Pushing `Not` through concats
 
-(rewrite (Not (Concat a b)) (Concat (Not a) (Not b)) :ruleset safe)
+(rewrite (Not (Concat a b)) (Concat (Not a) (Not b)) :ruleset slow)
 
 ; ### Pushing `And` through concats.
 
 (rewrite (And a (Concat b c)) (Concat
          (And (Extract (- wa 1) wc a) b)
          (And (Extract (- wc 1) 0 a) c))
-         :when ((= wa (Width a)) (= wc (Width c))) :ruleset safe)
+         :when ((= wa (Width a)) (= wc (Width c))) :ruleset slow)
 
 ; All other bitwise operators naturally follow.
 
@@ -106,11 +106,18 @@
 
 (rewrite (Extract i j (BvConst a w)) (BvConst (>> (& a (- (<< __1 (+ i 1)) __1)) j) (+ 1 (- i j))) :subsume :ruleset fold)
 
-; ### Pushing extracts through operators
+; Pushing and pulling extracts through operators
 
-(rewrite (Extract i 0 (Mul a b)) (Mul (Extract i 0 a) (Extract i 0 b)) :ruleset safe)
-(rewrite (Extract i 0 (Add a b)) (Add (Extract i 0 a) (Extract i 0 b)) :ruleset safe)
-(rewrite (Extract i 0 (And a b)) (And (Extract i 0 a) (Extract i 0 b)) :ruleset safe)
-(rewrite (Extract i 0 (Not a)) (Not (Extract i 0 a)) :ruleset safe)
-(rewrite (Extract i 0 (Neg a)) (Neg (Extract i 0 a)) :ruleset safe)
-(rewrite (Extract i 0 (ITE cond a b)) (ITE cond (Extract i 0 a) (Extract i 0 b)) :ruleset safe)
+(rewrite (Extract i 0 (Mul a b)) (Mul (Extract i 0 a) (Extract i 0 b)) :ruleset slow)
+(rewrite (Extract i 0 (Add a b)) (Add (Extract i 0 a) (Extract i 0 b)) :ruleset slow)
+(rewrite (Extract i 0 (And a b)) (And (Extract i 0 a) (Extract i 0 b)) :ruleset slow)
+(rewrite (Extract i 0 (Not a)) (Not (Extract i 0 a)) :ruleset slow)
+(rewrite (Extract i 0 (Neg a)) (Neg (Extract i 0 a)) :ruleset slow)
+(rewrite (Extract i 0 (ITE cond a b)) (ITE cond (Extract i 0 a) (Extract i 0 b)) :ruleset slow)
+
+(rewrite (Mul (Extract i 0 a) (Extract i 0 b)) (Extract i 0 (Mul a b)) :when ((= (Width a) (Width b))) :ruleset slow)
+(rewrite (Add (Extract i 0 a) (Extract i 0 b)) (Extract i 0 (Add a b)) :when ((= (Width a) (Width b))) :ruleset slow)
+(rewrite (And (Extract i 0 a) (Extract i 0 b)) (Extract i 0 (And a b)) :when ((= (Width a) (Width b))) :ruleset slow)
+(rewrite (Not (Extract i 0 a)) (Extract i 0 (Not a)) :ruleset slow)
+(rewrite (Neg (Extract i 0 a)) (Extract i 0 (Neg a)) :ruleset slow)
+(rewrite (ITE cond (Extract i 0 a) (Extract i 0 b)) (Extract i 0 (ITE cond a b)) :when ((= (Width a) (Width b))) :ruleset slow)

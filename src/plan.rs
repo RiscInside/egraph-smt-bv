@@ -66,15 +66,21 @@ impl Plan {
         let run_once = Plan::Leaf(Tactic::RunRuleset(Symbol::from("once")));
         // Build the main reasoning block based on repetition
         let repeat_block = Plan::Seq(vec![
-            Plan::Saturate(vec![
-                Plan::Saturate(vec![
-                    Plan::Leaf(Tactic::RunRuleset(Symbol::from("width"))),
-                    Plan::Leaf(Tactic::RunRuleset(Symbol::from("eq"))),
-                    Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold"))),
-                ]),
-                Plan::Leaf(Tactic::RunRuleset(Symbol::from("safe"))),
-            ]),
-            Plan::Leaf(Tactic::RunRuleset(Symbol::from("unsafe"))),
+            Plan::Repeat(
+                vec![
+                    Plan::Saturate(vec![
+                        Plan::Saturate(vec![
+                            Plan::Leaf(Tactic::RunRuleset(Symbol::from("width"))),
+                            Plan::Leaf(Tactic::RunRuleset(Symbol::from("eq"))),
+                            Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold"))),
+                        ]),
+                        Plan::Leaf(Tactic::RunRuleset(Symbol::from("safe"))),
+                    ]),
+                    Plan::Leaf(Tactic::RunRuleset(Symbol::from("slow"))),
+                ],
+                3,
+            ),
+            Plan::Leaf(Tactic::RunRuleset(Symbol::from("explosive"))),
         ]);
         // Repeat it 5 times
         let repeat_block = Plan::Repeat(vec![repeat_block], 5);
@@ -93,7 +99,7 @@ impl Plan {
         let sexprs = match sexpr {
             SExpr::Application(sexprs) => sexprs,
             SExpr::Symbol(symbol) => match symbol.0.as_str() {
-                ruleset @ ("safe" | "unsafe" | "fold" | "width" | "eq" | "once") => {
+                ruleset @ ("safe" | "explosive" | "slow" | "fold" | "width" | "eq" | "once") => {
                     return Ok(Plan::Leaf(Tactic::RunRuleset(ruleset.into())));
                 }
                 _ => bail!("Unknown tactic: `{}`", symbol.0),

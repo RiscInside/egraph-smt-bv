@@ -87,12 +87,18 @@
 ; * Constant folding of any kind with subsumption of the original node
 ; * Cancellation rules (e.g. in `a + b = a` we rewrite `b` to 0 and remove `+`)
 
-; ### Exploratory ruleset (`unsafe`)
+; ### Explosive ruleset (`explosive`)
 
-; `unsafe` ruleset contrains all other rules that we deem potentially useful.
-; These never executed to saturation
+; `explosive` ruleset contains rules that should only be ran a handful of times.
 
-(ruleset unsafe)
+(ruleset explosive)
+
+; ### Slow ruleset (`slow`)
+
+; `slow` ruleset contains rules that, while might not lead to saturation, do not
+; pollute the e-graph as much. `slow` gets more chances to run than `explosive`
+
+(ruleset slow)
 
 ; ### Visualisation ruleset (`vis`)
 

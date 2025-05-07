@@ -12,7 +12,8 @@
 ; as aig simplification rules won't get any performance boost from subsuming
 ; e-nodes from other tables.
 
-(birewrite (Or e1 e2) (Not (And (Not e1) (Not e2))) :ruleset fold)
+(rewrite (Or e1 e2) (Not (And (Not e1) (Not e2))) :ruleset fold)
+(rewrite (Not (And (Not e1) (Not e2))) (Or e1 e2) :ruleset slow)
 (rewrite (Xor e1 e2)
          (Not (And (Not (And e1 (Not e2))) (Not (And (Not e1) e2)))) :ruleset fold)
 (rewrite (Implies e1 e2) (Not (And e1 (Not e2))) :ruleset fold)
@@ -91,7 +92,7 @@
 (rule ((= e (And (And a b) (And a d))))
       ((union e (And (And a b) d))
        (union e (And (And a d) b)))
-      :ruleset fold)
+      :ruleset safe)
 
 ; ### Commutativity of `And`
 
@@ -101,13 +102,13 @@
 
 ; ### Associativity of `And` and `Or`
 
-(rewrite (And (And a b) c) (And a (And b c)) :ruleset unsafe)
-(rewrite (Or (Or a b) c) (Or a (Or b c)) :ruleset unsafe)
+(rewrite (And (And a b) c) (And a (And b c)) :ruleset explosive)
+(rewrite (Or (Or a b) c) (Or a (Or b c)) :ruleset explosive)
 
 ; ### Distributivity of `And` and `Or`
 
-(birewrite (And a (Or b c)) (Or (And a b) (And a c)) :ruleset unsafe)
-(birewrite (Or a (And b c)) (And (Or a b) (Or a c)) :ruleset unsafe)
+(birewrite (And a (Or b c)) (Or (And a b) (And a c)) :ruleset explosive)
+(birewrite (Or a (And b c)) (And (Or a b) (Or a c)) :ruleset explosive)
 
 ; ### Constant folding for bit-vectors
 

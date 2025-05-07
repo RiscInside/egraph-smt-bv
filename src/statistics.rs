@@ -41,22 +41,24 @@ fn top_entries<T: std::cmp::Ord + Copy>(
         .collect::<Vec<_>>()
 }
 
-fn get_ruleset_times(report: &RunReport, name: &str) -> (Duration, Duration, Duration) {
-    let symbol = Symbol::from(name);
-    (
+struct RulesetTimes(Symbol, Duration, Duration, Duration);
+
+fn get_ruleset_times(report: &RunReport, name: Symbol) -> RulesetTimes {
+    RulesetTimes(
+        name,
         report
             .search_time_per_ruleset
-            .get(&symbol)
+            .get(&name)
             .cloned()
             .unwrap_or(Duration::ZERO),
         report
             .apply_time_per_ruleset
-            .get(&symbol)
+            .get(&name)
             .cloned()
             .unwrap_or(Duration::ZERO),
         report
             .rebuild_time_per_ruleset
-            .get(&symbol)
+            .get(&name)
             .cloned()
             .unwrap_or(Duration::ZERO),
     )
@@ -78,14 +80,19 @@ impl Context {
         Ok(())
     }
 
+    fn print_ruleset_table_entry(&mut self, times: RulesetTimes) -> anyhow::Result<()> {
+        self.text(&format!(
+            "| `{}` | {:?} | {:?} | {:?}",
+            times.0, times.1, times.2, times.3
+        ))
+    }
+
     pub(crate) fn print_stats(&mut self, report: &RunReport) -> anyhow::Result<()> {
         let top_apps = top_entries(&report.num_matches_per_rule, 0);
         let top_search_time = top_entries(&report.search_time_per_rule, Duration::new(0, 0));
         let top_apply_time = top_entries(&report.apply_time_per_rule, Duration::new(0, 0));
 
-        let (fold_search, fold_apply, fold_rebuild) = get_ruleset_times(report, "fold");
-        let (safe_search, safe_apply, safe_rebuild) = get_ruleset_times(report, "safe");
-        let (unsafe_search, unsafe_apply, unsafe_rebuild) = get_ruleset_times(report, "unsafe");
+        let rulesets: Vec<_> = report.apply_time_per_rule.keys().cloned().collect();
 
         self.text("<details>\n<summary>Rewrite rule application statistics</summary>")?;
         self.newline()?;
@@ -94,15 +101,10 @@ impl Context {
         self.newline()?;
         self.text("| Ruleset | Search time | Apply time | Rebuild time |")?;
         self.text("|---------|-------------|------------|--------------|")?;
-        self.text(&format!(
-            "| `fold` | {fold_search:?} | {fold_apply:?} | {fold_rebuild:?}"
-        ))?;
-        self.text(&format!(
-            "| `safe` | {safe_search:?} | {safe_apply:?} | {safe_rebuild:?}"
-        ))?;
-        self.text(&format!(
-            "| `unsafe` | {unsafe_search:?} | {unsafe_apply:?} | {unsafe_rebuild:?}"
-        ))?;
+        for ruleset in rulesets {
+            let times = get_ruleset_times(report, ruleset);
+            self.print_ruleset_table_entry(times)?;
+        }
         self.newline()?;
 
         self.text("#### Rewrite rules by number of applications")?;

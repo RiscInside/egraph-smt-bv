@@ -175,5 +175,3 @@
 
 (rule ((= e (BvConst v w))) ((set (Width e) w)) :ruleset width)
 (rule ((= e (BvAll b w))) ((set (Width e) w)) :ruleset width)
-
-; Note that we only define folding rules for some operators here, as others can be derived from those.

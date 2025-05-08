@@ -92,7 +92,7 @@ impl Context {
         let top_search_time = top_entries(&report.search_time_per_rule, Duration::new(0, 0));
         let top_apply_time = top_entries(&report.apply_time_per_rule, Duration::new(0, 0));
 
-        let rulesets: Vec<_> = report.apply_time_per_rule.keys().cloned().collect();
+        let rulesets: Vec<_> = report.search_time_per_ruleset.keys().cloned().collect();
 
         self.text("<details>\n<summary>Rewrite rule application statistics</summary>")?;
         self.newline()?;

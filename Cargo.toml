@@ -13,6 +13,7 @@ cap = "0.1.2"
 clap = { version = "4.5.20", features = ["derive"] }
 egglog = { git = "https://github.com/RiscInside/egglog", rev = "2c576bdc2309739db41c3fd522d1090c3879ae42" }
 egraph-serialize = { version = "0.2.0", features = ["graphviz"] }
+hashbrown = "0.15.3"
 im-rc = "15.1.0"
 indoc = "2.0.6"
 itertools = "0.13.0"

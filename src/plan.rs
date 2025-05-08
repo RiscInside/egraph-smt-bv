@@ -23,6 +23,8 @@ lazy_static! {
 pub(crate) enum Tactic {
     /// Run egglog ruleset
     RunRuleset(Symbol),
+    /// Run linear solver
+    RunLinSolve,
     /// Dump the current e-graph to a json file
     DumpJson(PathBuf),
     /// Dump the current e-graph html to a file
@@ -64,15 +66,18 @@ impl Plan {
         ]);
         // Run the `once` ruleset with very explosive rules
         let run_once = Plan::Leaf(Tactic::RunRuleset(Symbol::from("once")));
-        // Build the main reasoning block based on repetition
+        // Build the main reasoning block based on repetition.
         let repeat_block = Plan::Seq(vec![
             Plan::Repeat(
                 vec![
                     Plan::Saturate(vec![
                         Plan::Saturate(vec![
-                            Plan::Leaf(Tactic::RunRuleset(Symbol::from("width"))),
-                            Plan::Leaf(Tactic::RunRuleset(Symbol::from("eq"))),
-                            Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold"))),
+                            Plan::Saturate(vec![
+                                Plan::Leaf(Tactic::RunRuleset(Symbol::from("width"))),
+                                Plan::Leaf(Tactic::RunRuleset(Symbol::from("eq"))),
+                                Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold"))),
+                            ]),
+                            Plan::Leaf(Tactic::RunLinSolve),
                         ]),
                         Plan::Leaf(Tactic::RunRuleset(Symbol::from("safe"))),
                     ]),
@@ -102,6 +107,7 @@ impl Plan {
                 ruleset @ ("safe" | "explosive" | "slow" | "fold" | "width" | "eq" | "once") => {
                     return Ok(Plan::Leaf(Tactic::RunRuleset(ruleset.into())));
                 }
+                "linsolve" => return Ok(Plan::Leaf(Tactic::RunLinSolve)),
                 _ => bail!("Unknown tactic: `{}`", symbol.0),
             },
             SExpr::Constant(Constant::String(name)) => {
@@ -178,7 +184,7 @@ impl Plan {
     }
 }
 
-pub enum PlanError {
+pub(crate) enum PlanError {
     /// anyhow::Error
     Anyhow(anyhow::Error),
     /// Timeout elapsing
@@ -193,7 +199,7 @@ impl From<anyhow::Error> for PlanError {
     }
 }
 
-type PlanResult<T> = Result<T, PlanError>;
+pub(crate) type PlanResult<T> = Result<T, PlanError>;
 
 impl Context {
     pub(crate) fn check_for_unsat(&mut self) -> PlanResult<()> {
@@ -257,6 +263,7 @@ impl Context {
 
                 Ok(updated)
             }
+            Tactic::RunLinSolve => self.linsolve_tactic(),
             Tactic::DumpJson(path) => {
                 self.dump_json(path)?;
                 Ok(false)

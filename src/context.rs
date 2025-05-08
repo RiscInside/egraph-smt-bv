@@ -12,11 +12,13 @@ use crate::{
     },
     plan::Plan,
     smt2lib,
+    solvers::linsolve::{create_linear_solver, LinearSolver},
     status::SATStatus,
 };
 use anyhow::{bail, Context as _};
-use egglog::EGraph;
+use egglog::{ast::GenericCommand, span, EGraph, Value};
 use itertools::Itertools;
+use std::sync::{Arc, Mutex};
 
 /// Context representing the problem we are trying to solve
 pub struct Context {
@@ -34,6 +36,8 @@ pub struct Context {
     pub(crate) rewriting_history: Option<Vec<egraph_serialize::EGraph>>,
     /// True if functions should be kept in the e-graph
     pub(crate) keep_functions: bool,
+    /// Linear solver reference
+    pub(crate) linear_solver: Arc<Mutex<LinearSolver<Value>>>,
 }
 
 impl Context {
@@ -76,7 +80,15 @@ impl Context {
 
 impl Context {
     pub fn new() -> Context {
-        let egraph = EGraph::default();
+        let mut egraph = EGraph::default();
+        // Define `V` sort, as solvers rely on it being available
+        egraph
+            .run_program(vec![GenericCommand::Sort(span!(), "V".into(), None)])
+            .unwrap();
+
+        // Create a linear solver instance
+        let linear_solver = create_linear_solver(&mut egraph);
+
         Context {
             egraph,
             sinks: LogSink::new(),
@@ -85,6 +97,7 @@ impl Context {
             check_sat_plan: Plan::check_sat_default(None),
             keep_functions: false,
             rewriting_history: None,
+            linear_solver,
         }
     }
 

@@ -10,13 +10,8 @@
 (let __2 (from-string "2"))
 
 ; ### Values (`V`)
-; `V` defines all SMT2LIB values. We choose to make values untyped as that
-; reduces rule duplication across types.
-
-(sort V)
-
-; We aren't using any "datatype" declaration, as there could be many ways in
-; which values in `V` are introduced, some of which we may not even know about.
+; Sort `V` is used for all SMT2LIB values. It is defined in Rust code prior to running this
+; logbook.
 
 ; ### Value lists/variadics (`VS`)
 ; `VS` are used for functions accepting variable number of parameters.

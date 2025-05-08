@@ -1,14 +1,16 @@
 //! Using primitives to intercept value unions and bitvector e-nodes
 
+use std::sync::{Arc, Mutex};
+
 use egglog::{
     ast::Symbol, constraint::SimpleTypeConstraint, sort::Sort, ArcSort, PrimitiveLike, UnionFind,
     Value,
 };
 
-pub(crate) trait Listener: Sync + Send + 'static {
-    fn on_merge(&self, old: Value, new: Value);
+pub(crate) trait Listener: Send + 'static {
+    fn on_merge(&mut self, old: Value, new: Value);
 
-    fn register_extra_primitives(_info: &mut egglog::TypeInfo) {}
+    fn register_extra_primitives(_arc_self: Arc<Mutex<Self>>, _info: &mut egglog::TypeInfo) {}
 }
 
 pub(crate) struct ProxySort<L> {
@@ -17,7 +19,7 @@ pub(crate) struct ProxySort<L> {
     #[cfg(debug_assertions)]
     wrapped_name: Symbol,
     wrapped: ArcSort,
-    listener: L,
+    listener: Arc<Mutex<L>>,
 }
 
 impl<L> ProxySort<L> {
@@ -25,7 +27,7 @@ impl<L> ProxySort<L> {
         name: Symbol,
         intro_name: Symbol,
         wrapped_sort: ArcSort,
-        listener: L,
+        listener: Arc<Mutex<L>>,
     ) -> ProxySort<L> {
         ProxySort {
             name,
@@ -34,6 +36,22 @@ impl<L> ProxySort<L> {
             wrapped_name: wrapped_sort.name(),
             wrapped: wrapped_sort,
             listener,
+        }
+    }
+
+    fn to_wrapped(&self, value: Value) -> Value {
+        Value {
+            bits: value.bits,
+            #[cfg(debug_assertions)]
+            tag: self.wrapped_name,
+        }
+    }
+
+    fn to_proxy(&self, value: Value) -> Value {
+        Value {
+            bits: value.bits,
+            #[cfg(debug_assertions)]
+            tag: self.name,
         }
     }
 }
@@ -58,15 +76,23 @@ impl<L: Listener> Sort for ProxySort<L> {
     }
 
     fn inner_values(&self, value: &Value) -> Vec<(ArcSort, Value)> {
-        vec![(self.wrapped.clone(), *value)]
+        vec![(self.wrapped.clone(), self.to_wrapped(*value))]
     }
 
     fn canonicalize(&self, value: &mut Value, unionfind: &UnionFind) -> bool {
-        let old_value = *value;
+        // Set value of the tag to what wrapped sort expects
+        let old_value = self.to_wrapped(*value);
+        *value = old_value;
+
         let changed = self.wrapped.canonicalize(value, unionfind);
         if changed {
-            self.listener.on_merge(old_value, *value);
+            self.listener
+                .lock()
+                .expect("listeners shouldn't panic")
+                .on_merge(old_value, *value);
         }
+
+        *value = self.to_proxy(*value);
         changed
     }
 
@@ -79,7 +105,7 @@ impl<L: Listener> Sort for ProxySort<L> {
             proxy_sort_name: self.name,
         });
 
-        L::register_extra_primitives(info);
+        L::register_extra_primitives(self.listener.clone(), info);
     }
 
     fn as_arc_any(

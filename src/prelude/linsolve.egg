@@ -1,0 +1,23 @@
+; <summary>linsolve.egg - supporting code for linear bitvector solver</summary>
+
+; ### `linsolve` proxies
+
+; Linear solver keeps track of newly discovered equalities using a proxy table. Not every
+; value is linear proxied - only those that are part of linear constraints get this fate.
+
+(relation HasLinSolveProxy (LinSolveProxy))
+
+; ### `linsolve` ruleset
+
+; `linsolve` ruleset reports all known equations based on Add/Neg/Mul e-nodes to the solver.
+
+(ruleset linsolve)
+
+(rule ((= e (Add e1 e2)) (= e1 (ordering-min e1 e2)) (= w (Width e)))
+    ((HasLinSolveProxy (linsolve-proxy e))
+    (HasLinSolveProxy (linsolve-proxy e1))
+    (HasLinSolveProxy (linsolve-proxy e2))
+    (linsolve-add e1 e2 e w)) :ruleset linsolve)
+(rule ((= e (Mul e1 (BvConst c w))) (= w (Width e)))
+    ((HasLinSolveProxy (linsolve-proxy e))
+    (HasLinSolveProxy (linsolve-proxy e1))) :ruleset linsolve)

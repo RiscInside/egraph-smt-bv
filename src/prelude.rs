@@ -2,6 +2,7 @@ use crate::context::Context;
 use crate::log::Log;
 use lazy_static::lazy_static;
 
+#[macro_export]
 macro_rules! embed {
     ($path:literal) => {
         (Log::from_egglog_source(include_str!($path), Some(concat!("src/", $path))).unwrap())
@@ -20,6 +21,7 @@ fn prelude_logbook() -> Log {
         .followed_by(embed!("prelude/div.egg").wrap_in_details())
         .followed_by(embed!("prelude/ite.egg").wrap_in_details())
         .followed_by(embed!("prelude/bpnf.egg").wrap_in_details())
+        .followed_by(embed!("prelude/linsolve.egg").wrap_in_details())
 }
 
 lazy_static! {

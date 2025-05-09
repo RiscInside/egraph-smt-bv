@@ -1,0 +1,26 @@
+; <summary>solvers.egg - egglog rules for sending info to rust solvers</summary>
+
+; ### Proxies
+
+; Proxies keep track of newly discovered equalities on SMT2LIB values. Updates are received
+; via canonicilize calls on Proxy values during rebuilding. To make sure that values are
+; actually rebuilt, we keep them in `HasProxy` relation.
+
+(relation HasProxy (Proxy))
+
+; We install proxies for values in the designated `proxy` ruleset.
+
+(ruleset proxy)
+(rule ((= w (Width e))) ((HasProxy (proxy e))) :ruleset proxy)
+
+; ### `solve_premises` ruleset
+
+; `solve_premises` ruleset reports equations native solvers might be interested in
+; via the reporting interface
+
+(ruleset solve_premises)
+
+; We can report `Add` e-nodes to the linear bitvector solver.
+
+(rule ((= e (Add e1 e2)) (= e1 (ordering-min e1 e2)) (= w (Width e)))
+    ((linsolve-add e1 e2 e w)) :ruleset solve_premises)

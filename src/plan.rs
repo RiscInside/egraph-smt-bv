@@ -23,8 +23,8 @@ lazy_static! {
 pub(crate) enum Tactic {
     /// Run egglog ruleset
     RunRuleset(Symbol),
-    /// Run linear solver
-    RunLinSolve,
+    /// Run native solvers
+    RunSolvers,
     /// Dump the current e-graph to a json file
     DumpJson(PathBuf),
     /// Dump the current e-graph html to a file
@@ -74,10 +74,11 @@ impl Plan {
                         Plan::Saturate(vec![
                             Plan::Saturate(vec![
                                 Plan::Leaf(Tactic::RunRuleset(Symbol::from("width"))),
+                                Plan::Leaf(Tactic::RunRuleset(Symbol::from("proxy"))),
                                 Plan::Leaf(Tactic::RunRuleset(Symbol::from("eq"))),
                                 Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold"))),
                             ]),
-                            Plan::Leaf(Tactic::RunLinSolve),
+                            Plan::Leaf(Tactic::RunSolvers),
                         ]),
                         Plan::Leaf(Tactic::RunRuleset(Symbol::from("safe"))),
                     ]),
@@ -107,7 +108,7 @@ impl Plan {
                 ruleset @ ("safe" | "explosive" | "slow" | "fold" | "width" | "eq" | "once") => {
                     return Ok(Plan::Leaf(Tactic::RunRuleset(ruleset.into())));
                 }
-                "linsolve" => return Ok(Plan::Leaf(Tactic::RunLinSolve)),
+                "solvers" => return Ok(Plan::Leaf(Tactic::RunSolvers)),
                 _ => bail!("Unknown tactic: `{}`", symbol.0),
             },
             SExpr::Constant(Constant::String(name)) => {
@@ -263,7 +264,7 @@ impl Context {
 
                 Ok(updated)
             }
-            Tactic::RunLinSolve => self.linsolve_tactic(),
+            Tactic::RunSolvers => self.solvers_tactic(),
             Tactic::DumpJson(path) => {
                 self.dump_json(path)?;
                 Ok(false)

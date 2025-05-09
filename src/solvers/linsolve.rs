@@ -1,27 +1,10 @@
 //! Solver for bitvector linear equations
-use std::{
-    collections::HashSet,
-    hash::BuildHasher,
-    sync::{Arc, Mutex},
-};
-
-use crate::{
-    intercept::{Listener, ProxySort},
-    plan::PlanResult,
-    Context,
-};
-use anyhow::Context as _;
-use egglog::{
-    ast::{Command, GenericSchedule, RunConfig, Symbol},
-    sort::{EqSort, FromSort, I64Sort, IntoSort, UnitSort},
-    span, ArcSort, EGraph, PrimitiveLike, Value,
-};
+use super::Width;
 use hashbrown::{DefaultHashBuilder, HashMap};
 use itertools::{EitherOrBoth, Itertools};
 use num_bigint::BigUint;
+use std::{collections::HashSet, hash::BuildHasher};
 
-/// Width of any particular bitvector
-type Width = u64;
 /// Bit-vector parity
 type Parity = u64;
 
@@ -215,8 +198,6 @@ pub(crate) struct LinearSolver<T: Copy + Ord + std::hash::Hash + 'static> {
     keyed_by_def: hashbrown::HashTable<T>,
     /// All inferred unions
     pending_unions: Vec<(T, T)>,
-    /// Symbol for "V"
-    v: Symbol,
 }
 
 impl<T: Copy + Ord + std::hash::Hash + 'static> Default for LinearSolver<T> {
@@ -227,7 +208,6 @@ impl<T: Copy + Ord + std::hash::Hash + 'static> Default for LinearSolver<T> {
             free_vars: Default::default(),
             keyed_by_def: Default::default(),
             pending_unions: Default::default(),
-            v: "V".into(),
         }
     }
 }
@@ -411,7 +391,7 @@ impl<T: Copy + Ord + std::hash::Hash + 'static> LinearSolver<T> {
     }
 
     /// Biased equality, used for eliminating old into new
-    fn assert_equal(&mut self, old: T, new: T) {
+    pub(crate) fn assert_equal(&mut self, old: T, new: T) {
         let Some(width) = self.width(old).or(self.width(new)) else {
             // Equality between two values we don't even know about is not worth considering
             return;
@@ -425,7 +405,7 @@ impl<T: Copy + Ord + std::hash::Hash + 'static> LinearSolver<T> {
 
     /// Assert that value is equal to some big-int constant
     #[allow(dead_code)]
-    fn assert_is_constant(&mut self, value: T, constant: BigUint, width: Width) {
+    pub(crate) fn assert_is_constant(&mut self, value: T, constant: BigUint, width: Width) {
         let equation = self.get_exact_equation(value, width);
         let negated_constant = if constant.bits() == 0 {
             constant
@@ -436,7 +416,7 @@ impl<T: Copy + Ord + std::hash::Hash + 'static> LinearSolver<T> {
     }
 
     /// Assert that the value is equal to sum of two other values
-    fn assert_is_add(&mut self, lhs: T, rhs: T, res: T, width: Width) {
+    pub(crate) fn assert_is_add(&mut self, lhs: T, rhs: T, res: T, width: Width) {
         let equation = self
             .get_exact_equation(lhs, width)
             .add(&self.get_exact_equation(rhs, width))
@@ -446,7 +426,7 @@ impl<T: Copy + Ord + std::hash::Hash + 'static> LinearSolver<T> {
 
     /// Assert that value is equal to other value multiplied
     #[allow(dead_code)]
-    fn assert_is_mul(&mut self, op: T, constant: BigUint, res: T, width: Width) {
+    pub(crate) fn assert_is_mul(&mut self, op: T, constant: BigUint, res: T, width: Width) {
         let res_equation = self.get_exact_equation(res, width);
         let exclusive_bound = res_equation.exclusive_bound();
         let inclusive_bound = exclusive_bound - BigUint::from(1u32);
@@ -464,7 +444,7 @@ impl<T: Copy + Ord + std::hash::Hash + 'static> LinearSolver<T> {
     }
 
     /// Flush all inferrred equalities
-    fn new_inferred_eqs(&mut self, mut on_eq: impl FnMut(T, T)) {
+    pub(crate) fn process_new_unions(&mut self, mut on_eq: impl FnMut(T, T)) {
         for (lhs, rhs) in std::mem::take(&mut self.pending_unions) {
             on_eq(lhs, rhs);
         }
@@ -472,7 +452,7 @@ impl<T: Copy + Ord + std::hash::Hash + 'static> LinearSolver<T> {
 }
 
 impl<T: Copy + Ord + std::hash::Hash + 'static> LinearSolver<T> {
-    fn dump(&self, mut print_t: impl FnMut(&T) -> String) {
+    pub(crate) fn dump(&self, mut print_t: impl FnMut(&T) -> String) {
         eprintln!("{{");
         eprintln!("  Equations: {{");
         for (key, (parity, row, hash)) in self.defs.iter() {
@@ -506,129 +486,5 @@ impl<T: Copy + Ord + std::hash::Hash + 'static> LinearSolver<T> {
                 .join(", ")
         );
         eprintln!("}}");
-    }
-}
-
-impl LinearSolver<Value> {
-    #[allow(dead_code)]
-    fn dump_egglog(&self) {
-        self.dump(|val| format!("v{}", val.bits));
-    }
-}
-
-struct AssertAdd {
-    v_sort: ArcSort,
-    unit_sort: Arc<UnitSort>,
-    int_sort: Arc<I64Sort>,
-    solver: Arc<Mutex<LinearSolver<Value>>>,
-}
-
-impl PrimitiveLike for AssertAdd {
-    fn name(&self) -> egglog::ast::Symbol {
-        "linsolve-add".into()
-    }
-
-    fn get_type_constraints(
-        &self,
-        span: &egglog::ast::Span,
-    ) -> Box<dyn egglog::constraint::TypeConstraint> {
-        Box::new(egglog::constraint::SimpleTypeConstraint::new(
-            "linsolve-add".into(),
-            vec![
-                self.v_sort.clone(),
-                self.v_sort.clone(),
-                self.v_sort.clone(),
-                self.int_sort.clone(),
-                self.unit_sort.clone(),
-            ],
-            span.clone(),
-        ))
-    }
-
-    fn apply(
-        &self,
-        values: &[Value],
-        _sorts: (&[ArcSort], &ArcSort),
-        _egraph: Option<&mut EGraph>,
-    ) -> Option<Value> {
-        let mut solver = self.solver.lock().unwrap();
-        solver.assert_is_add(
-            values[0],
-            values[1],
-            values[2],
-            i64::load(&self.int_sort, &values[3]).try_into().unwrap(),
-        );
-
-        IntoSort::store((), &self.unit_sort)
-    }
-}
-
-impl Listener for LinearSolver<Value> {
-    fn on_merge(&mut self, old: Value, new: Value) {
-        self.assert_equal(old, new);
-    }
-
-    fn register_extra_primitives(arc_self: Arc<Mutex<Self>>, info: &mut egglog::TypeInfo) {
-        info.add_primitive(AssertAdd {
-            v_sort: info
-                .get_sort_by(|sort: &Arc<EqSort>| sort.name.as_str() == "V")
-                .unwrap(),
-            unit_sort: info.get_sort_by(|_| true).unwrap(),
-            int_sort: info.get_sort_by(|_| true).unwrap(),
-            solver: arc_self.clone(),
-        });
-    }
-}
-
-pub(crate) fn create_linear_solver(egraph: &mut EGraph) -> Arc<Mutex<LinearSolver<Value>>> {
-    let solver = Arc::new(Mutex::new(LinearSolver::<Value>::default()));
-    let v_sort: Arc<EqSort> = egraph
-        .get_sort_by(|sort: &Arc<EqSort>| sort.name.as_str() == "V")
-        .context("No value sort defined yet")
-        .unwrap();
-
-    egraph
-        .add_arcsort(
-            Arc::new(ProxySort::new(
-                "LinSolveProxy".into(),
-                "linsolve-proxy".into(),
-                v_sort,
-                solver.clone(),
-            )),
-            span!(),
-        )
-        .context("Adding proxy sort LinSolveProxy for the linear bitvector solver")
-        .unwrap();
-
-    solver
-}
-
-impl Context {
-    pub(crate) fn linsolve_tactic(&mut self) -> PlanResult<bool> {
-        // Rebuild e-graph to get all union-find updates
-        self.egraph.rebuild_nofail();
-
-        // Run linsolve ruleset to get updates
-        self.run_cmds(vec![Command::RunSchedule(GenericSchedule::Run(
-            span!(),
-            RunConfig {
-                ruleset: "linsolve".into(),
-                until: None,
-            },
-        ))])?;
-
-        // Process inferred unions
-        let mut solver = self.linear_solver.lock().unwrap();
-        let mut changed = false;
-        let v = solver.v;
-        solver.new_inferred_eqs(|lhs, rhs| {
-            self.egraph.union(lhs.bits, rhs.bits, v);
-            changed = true;
-        });
-        drop(solver);
-
-        self.egraph.rebuild_nofail();
-
-        Ok(changed)
     }
 }

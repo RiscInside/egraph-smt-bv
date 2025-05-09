@@ -7,14 +7,14 @@
 (rewrite (Mul e (BvConst __1 w)) e :subsume :ruleset fold)
 
 ; Multiplying by -1 is negation
-(rewrite (Mul e (BvConst n1 w)) (Neg e) :when ((= w (Width e)) (= (- (<< __1 w) __1) n1)) :ruleset safe)
-(rewrite (Neg e) (Mul e (BvConst (- (<< __1 w) __1) w)) :when ((= w (Width e))) :ruleset safe)
+(rewrite (Mul e (BvConst n1 w)) (Neg e) :when ((= w (Width e)) (= (negate __1 w) n1)) :ruleset safe)
+(rewrite (Neg e) (Mul e (BvConst (negate __1 w) w)) :when ((= w (Width e))) :ruleset safe)
 
 ; Multiplying by 2 is the same as adding twice
 (birewrite (Mul e (BvConst __2 w)) (Add e e) :when ((= w (Width e)) (> w 1)) :ruleset fold)
 
 ; ### Constant-folding
-(rewrite (Mul (BvConst a w) (BvConst b w)) (BvConst (% (* a b) (<< __1 w)) w) :subsume :ruleset fold)
+(rewrite (Mul (BvConst a w) (BvConst b w)) (BvConst (* a b w) w) :subsume :ruleset fold)
 
 ; ### Merge-only associativity rules
 (rule ((= lhs (Mul a (Mul b c))) (= rhs (Mul (Mul a b) c)) (!= lhs rhs)) ((union lhs rhs)) :ruleset fold)
@@ -33,8 +33,5 @@
 (rewrite (Mul a (Neg b)) (Neg (Mul a b)) :ruleset explosive)
 (rewrite (Mul (Neg a) (Neg b)) (Mul a b) :ruleset fold)
 
-; ### Deducing 0 from equality of Muls
-(rule ((= (BvConst __0 w) (Mul a (BvConst v w))) (!= (% v __2) __0)) ((union a (BvConst __0 w))) :ruleset fold)
-
 ; ### Shift-like Concat into Mul
-(rewrite (Concat (Extract (- w (+ shift 1)) 0 a) (BvAll false shift)) (Mul a (BvConst (% (<< __1 shift) (<< __1 w)) w)) :when ((= w (Width a))) :ruleset slow)
+(rewrite (Concat (Extract (- w (+ shift 1)) 0 a) (BvAll false shift)) (Mul a (BvConst (i64-shl __1 shift w) w)) :when ((= w (Width a))) :ruleset slow)

@@ -5,9 +5,9 @@
 ; We define `__0` and `__1` constants for 0 and 1 bigint values respectively. Those
 ; are used way too often to type (from-string "0") every single time.
 
-(let __0 (from-string "0"))
-(let __1 (from-string "1"))
-(let __2 (from-string "2"))
+(let __0 (bvconst-from-string "0"))
+(let __1 (bvconst-from-string "1"))
+(let __2 (bvconst-from-string "2"))
 
 ; ### Values (`V`)
 ; Sort `V` is used for all SMT2LIB values. It is defined in Rust code prior to running this

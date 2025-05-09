@@ -4,7 +4,7 @@
 
 ; `BvConst` defines bitvector constants of a given width.
 
-(constructor BvConst (BigInt i64) V)
+(constructor BvConst (BvConstSort i64) V)
 
 ; We also define `(BvAll b w)` to represent all-zero/all-one bitvectors
 ; of width `w` (`b = false` for all-zeros and `b = true` for all-ones).
@@ -97,8 +97,7 @@
 ; This is a simple check that every computed `BvConst` is positive. Negative signed values should
 ; be represented as their (positive) twos-complement representation.
 
-(rule ((BvConst a _) (< a __0)) ((panic "Negative constant detected. This is a constant fold bug")) :ruleset fold)
-(rule ((BvConst a w) (>= a (<< __1 w))) ((panic "Constant is too big. This is a constant folding bug")) :ruleset fold)
+(rule ((BvConst a w) (exceeds-bitwidth a w)) ((panic "Constant is too big. This is a constant folding bug")) :ruleset fold)
 
 ; ### `Width` of bit-vectors
 

@@ -18,17 +18,17 @@
 ; We can now use `Add` operator to convert between `Neg` and `Not`.
 
 (rewrite (Neg e) (Add (Not e) (BvConst __1 w)) :when ((= w (Width e))) :ruleset explosive)
-(rewrite (Not e) (Add (Neg e) (BvConst (- (<< __1 w) __1) w)) :when ((= w (Width e))) :ruleset explosive)
+(rewrite (Not e) (Add (Neg e) (BvConst (negate __1 w) w)) :when ((= w (Width e))) :ruleset explosive)
 
 ; ### Constant folding
 
 ; Constants can pass through `Add`.
 
-(rewrite (Add (BvConst x w) (BvConst y w)) (BvConst (% (+ x y) (<< __1 w)) w) :subsume :ruleset fold)
+(rewrite (Add (BvConst x w) (BvConst y w)) (BvConst (+ x y w) w) :subsume :ruleset fold)
 
 ; Constants can pass through `Neg`.
 
-(rewrite (Neg (BvConst x w)) (BvConst (% (- (<< __1 w) x) (<< __1 w)) w) :subsume :ruleset fold)
+(rewrite (Neg (BvConst x w)) (BvConst (negate x w) w) :subsume :ruleset fold)
 
 ; ### Merge-only associativity
 

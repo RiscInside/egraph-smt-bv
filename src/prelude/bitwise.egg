@@ -115,13 +115,8 @@
 ; It is sufficient to implement constant folding rules for `And` and `Not` on bitvectors - all
 ; other bitwise operators are (sometimes non-destructively) lowered to those.
 
-; `And` rule is fairly straightforward - we don't have any leading 1 bits.
-
 (rewrite (And (BvConst a w) (BvConst b _)) (BvConst (& a b) w) :subsume :ruleset fold)
-
-; `Not` rule is implemented with XOR to prevent introduction of leading 1 bits.
-
-(rewrite (Not (BvConst a w)) (BvConst (^ (- (<< __1 w) __1) a) w) :subsume :ruleset fold)
+(rewrite (Not (BvConst a w)) (BvConst (not-bv a w) w) :subsume :ruleset fold)
 
 ; Some rewrite rules for one bit bitvectors
 

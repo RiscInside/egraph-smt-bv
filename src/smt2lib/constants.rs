@@ -42,7 +42,7 @@ impl LocalContext<'_> {
             _ => bail!("Only bitvector constants are supported"),
         };
         let value = call!(
-            "from-string",
+            "bvconst-from-string",
             [lit!(egglog::ast::Symbol::new(format!("{value}")))]
         );
 
@@ -76,7 +76,7 @@ impl LocalContext<'_> {
 
         let (_, [value_as_string]) = captures.extract();
         let value = call!(
-            "from-string",
+            "bvconst-from-string",
             [lit!(egglog::ast::Symbol::new(value_as_string))]
         );
 

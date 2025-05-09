@@ -102,9 +102,9 @@
 
 ; `Concat` and `Extract` are implemented with bit-shifts on bigints.
 
-(rewrite (Concat (BvConst a w1) (BvConst b w2)) (BvConst (| (<< a w2) b) (+ w1 w2)) :subsume :ruleset fold)
+(rewrite (Concat (BvConst a w1) (BvConst b w2)) (BvConst (concat a b w2) (+ w1 w2)) :subsume :ruleset fold)
 
-(rewrite (Extract i j (BvConst a w)) (BvConst (>> (& a (- (<< __1 (+ i 1)) __1)) j) (+ 1 (- i j))) :subsume :ruleset fold)
+(rewrite (Extract i j (BvConst a w)) (BvConst (extract i j a) (+ 1 (- i j))) :subsume :ruleset fold)
 
 ; Pushing and pulling extracts through operators
 

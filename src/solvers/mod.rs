@@ -11,8 +11,10 @@ use egglog::{
 /// Width of any particular bitvector
 type Width = u64;
 
+pub(crate) mod bvconst;
 pub(crate) mod linsolve;
 
+use bvconst::{BvConstSort, BvConstTable};
 use linsolve::LinearSolver;
 
 use crate::intercept::{Listener, ProxySort};
@@ -27,15 +29,20 @@ impl LinearSolver<Value> {
 /// Combined solvers state
 pub(crate) struct Solvers {
     /// Linear solver
-    linear: linsolve::LinearSolver<Value>,
+    pub(crate) linear: LinearSolver<Value>,
+    /// Table of bitvector constants
+    pub(crate) bv_constants_index: BvConstTable,
     /// Symbol for "V"
-    v_symbol: Symbol,
+    pub(crate) v_symbol: Symbol,
 }
+
+pub(crate) type SolversRef = Arc<Mutex<Solvers>>;
 
 impl Default for Solvers {
     fn default() -> Self {
         Self {
             linear: Default::default(),
+            bv_constants_index: Default::default(),
             v_symbol: "V".into(),
         }
     }
@@ -90,7 +97,12 @@ pub(crate) fn create_solvers(egraph: &mut EGraph) -> Arc<Mutex<Solvers>> {
             )),
             span!(),
         )
-        .context("Adding proxy sort LinSolveProxy for the linear bitvector solver")
+        .context("Adding proxy sort")
+        .unwrap();
+
+    egraph
+        .add_arcsort(Arc::new(BvConstSort::new(solver.clone())), span!())
+        .context("Adding bit-vector constant sort")
         .unwrap();
 
     solver

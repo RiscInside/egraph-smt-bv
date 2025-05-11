@@ -26,7 +26,7 @@ impl std::fmt::Debug for BvConstSort {
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub(crate) struct BvConst(BigUint);
+pub(crate) struct BvConst(pub(crate) BigUint);
 
 impl BvConst {
     fn wrap(value: BigUint, width: i64) -> Self {

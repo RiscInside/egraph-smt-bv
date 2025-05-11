@@ -105,7 +105,8 @@ impl Plan {
         let sexprs = match sexpr {
             SExpr::Application(sexprs) => sexprs,
             SExpr::Symbol(symbol) => match symbol.0.as_str() {
-                ruleset @ ("safe" | "explosive" | "slow" | "fold" | "width" | "eq" | "once") => {
+                ruleset @ ("safe" | "explosive" | "slow" | "fold" | "width" | "eq" | "once"
+                | "proxy" | "solve_premises") => {
                     return Ok(Plan::Leaf(Tactic::RunRuleset(ruleset.into())));
                 }
                 "solvers" => return Ok(Plan::Leaf(Tactic::RunSolvers)),

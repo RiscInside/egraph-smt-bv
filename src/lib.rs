@@ -1,6 +1,5 @@
 pub(crate) mod commands;
 pub(crate) mod context;
-pub(crate) mod intercept;
 pub(crate) mod log;
 pub(crate) mod plan;
 pub(crate) mod prelude;

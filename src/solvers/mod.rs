@@ -4,7 +4,7 @@ use crate::{plan::PlanResult, Context};
 use anyhow::Context as _;
 use egglog::{
     ast::{Command, GenericSchedule, RunConfig, Symbol},
-    sort::{EqSort, FromSort, I64Sort, IntoSort, UnitSort},
+    sort::{EqSort, I64Sort, IntoSort, UnitSort},
     span, ArcSort, EGraph, PrimitiveLike, Value,
 };
 
@@ -12,27 +12,26 @@ use egglog::{
 type Width = u64;
 
 pub(crate) mod bvconst;
-pub(crate) mod linsolve;
+pub(crate) mod linsolve2;
+pub(crate) mod proxy;
 
-use bvconst::{BvConstSort, BvConstTable};
-use linsolve::LinearSolver;
+use bvconst::{BvConst, BvConstSort, BvConstTable};
+use proxy::ProxySort;
 
-use crate::intercept::{Listener, ProxySort};
-
-impl LinearSolver<Value> {
-    #[allow(dead_code)]
-    fn dump_egglog(&self) {
-        self.dump(|val| format!("v{}", val.bits));
+impl linsolve2::Variable for Value {
+    fn show(&self) -> String {
+        format!("v{}", self.bits)
     }
 }
 
 /// Combined solvers state
 pub(crate) struct Solvers {
     /// Linear solver
-    pub(crate) linear: LinearSolver<Value>,
+    linear: linsolve2::Solver<Value>,
     /// Table of bitvector constants
     pub(crate) bv_constants_index: BvConstTable,
     /// Symbol for "V"
+    #[allow(dead_code)]
     pub(crate) v_symbol: Symbol,
 }
 
@@ -48,35 +47,30 @@ impl Default for Solvers {
     }
 }
 
-impl Listener for Solvers {
-    fn on_merge(&mut self, old: Value, new: Value) {
-        self.linear.assert_equal(old, new);
-    }
-
-    fn register_extra_primitives(arc_self: Arc<Mutex<Self>>, info: &mut egglog::TypeInfo) {
-        info.add_primitive(AssertAdd {
-            v_sort: info
-                .get_sort_by(|sort: &Arc<EqSort>| sort.name.as_str() == "V")
-                .unwrap(),
-            unit_sort: info.get_sort_by(|_| true).unwrap(),
-            int_sort: info.get_sort_by(|_| true).unwrap(),
-            solvers: arc_self.clone(),
-        });
-    }
-}
-
 impl Solvers {
-    fn report_new_equalities(&mut self, egraph: &mut EGraph) -> bool {
-        let mut changed = false;
-        self.linear.process_new_unions(|lhs, rhs| {
-            egraph.union(lhs.bits, rhs.bits, self.v_symbol);
-            changed = true;
-        });
-        changed
+    fn on_merge(&mut self, old: Value, new: Value, width: Width) {
+        self.linear.assert_is_equal(old, new, width);
+    }
+
+    fn load_constant(&self, value: Value) -> BvConst {
+        self.bv_constants_index
+            .get_index(value.bits as usize)
+            .unwrap()
+            .clone()
     }
 
     fn assert_is_add(&mut self, lhs: Value, rhs: Value, result: Value, width: Width) {
         self.linear.assert_is_add(lhs, rhs, result, width);
+    }
+
+    fn assert_is_mul_const(&mut self, lhs: Value, constant: Value, result: Value, width: Width) {
+        let constant = self.load_constant(constant).0;
+        self.linear.assert_is_scaled(lhs, constant, result, width);
+    }
+
+    fn assert_is_constant(&mut self, constant: Value, val: Value, width: Width) {
+        let constant = self.load_constant(constant).0;
+        self.linear.assert_is_constant(constant, val, width);
     }
 }
 
@@ -88,22 +82,41 @@ pub(crate) fn create_solvers(egraph: &mut EGraph) -> Arc<Mutex<Solvers>> {
         .unwrap();
 
     egraph
-        .add_arcsort(
-            Arc::new(ProxySort::new(
-                "Proxy".into(),
-                "proxy".into(),
-                v_sort,
-                solver.clone(),
-            )),
-            span!(),
-        )
-        .context("Adding proxy sort")
-        .unwrap();
-
-    egraph
         .add_arcsort(Arc::new(BvConstSort::new(solver.clone())), span!())
         .context("Adding bit-vector constant sort")
         .unwrap();
+
+    egraph
+        .add_arcsort(Arc::new(ProxySort::new(egraph, solver.clone())), span!())
+        .context("Adding proxy sort")
+        .unwrap();
+
+    let unit_sort: Arc<UnitSort> = egraph.get_sort_by(|_| true).unwrap();
+    let int_sort: Arc<I64Sort> = egraph.get_sort_by(|_| true).unwrap();
+    let bvconst_sort: Arc<BvConstSort> = egraph.get_sort_by(|_| true).unwrap();
+
+    egraph.add_primitive(AssertAdd {
+        v_sort: v_sort.clone(),
+        unit_sort: unit_sort.clone(),
+        int_sort: int_sort.clone(),
+        solvers: solver.clone(),
+    });
+
+    egraph.add_primitive(AssertMulConstant {
+        v_sort: v_sort.clone(),
+        unit_sort: unit_sort.clone(),
+        int_sort: int_sort.clone(),
+        bvconst_sort: bvconst_sort.clone(),
+        solvers: solver.clone(),
+    });
+
+    egraph.add_primitive(AssertConstant {
+        v_sort: v_sort.clone(),
+        unit_sort: unit_sort.clone(),
+        int_sort: int_sort.clone(),
+        bvconst_sort: bvconst_sort.clone(),
+        solvers: solver.clone(),
+    });
 
     solver
 }
@@ -117,7 +130,7 @@ struct AssertAdd {
 
 impl PrimitiveLike for AssertAdd {
     fn name(&self) -> egglog::ast::Symbol {
-        "linsolve-add".into()
+        "solvers-add".into()
     }
 
     fn get_type_constraints(
@@ -125,7 +138,7 @@ impl PrimitiveLike for AssertAdd {
         span: &egglog::ast::Span,
     ) -> Box<dyn egglog::constraint::TypeConstraint> {
         Box::new(egglog::constraint::SimpleTypeConstraint::new(
-            "linsolve-add".into(),
+            "solvers-add".into(),
             vec![
                 self.v_sort.clone(),
                 self.v_sort.clone(),
@@ -144,46 +157,115 @@ impl PrimitiveLike for AssertAdd {
         _egraph: Option<&mut EGraph>,
     ) -> Option<Value> {
         let solver = &mut self.solvers.lock().unwrap();
-        solver.assert_is_add(
-            values[0],
-            values[1],
-            values[2],
-            i64::load(&self.int_sort, &values[3]).try_into().unwrap(),
-        );
+        solver.assert_is_add(values[0], values[1], values[2], values[3].bits);
 
+        IntoSort::store((), &self.unit_sort)
+    }
+}
+
+struct AssertConstant {
+    v_sort: ArcSort,
+    unit_sort: Arc<UnitSort>,
+    bvconst_sort: Arc<BvConstSort>,
+    int_sort: Arc<I64Sort>,
+    solvers: Arc<Mutex<Solvers>>,
+}
+
+impl PrimitiveLike for AssertConstant {
+    fn name(&self) -> egglog::ast::Symbol {
+        "solvers-constant".into()
+    }
+
+    fn get_type_constraints(
+        &self,
+        span: &egglog::ast::Span,
+    ) -> Box<dyn egglog::constraint::TypeConstraint> {
+        Box::new(egglog::constraint::SimpleTypeConstraint::new(
+            "solvers-constant".into(),
+            vec![
+                self.bvconst_sort.clone(),
+                self.v_sort.clone(),
+                self.int_sort.clone(),
+                self.unit_sort.clone(),
+            ],
+            span.clone(),
+        ))
+    }
+
+    fn apply(
+        &self,
+        values: &[Value],
+        _sorts: (&[ArcSort], &ArcSort),
+        _egraph: Option<&mut EGraph>,
+    ) -> Option<Value> {
+        let solver: &mut std::sync::MutexGuard<'_, Solvers> = &mut self.solvers.lock().unwrap();
+        solver.assert_is_constant(values[0], values[1], values[2].bits);
+        IntoSort::store((), &self.unit_sort)
+    }
+}
+
+struct AssertMulConstant {
+    v_sort: ArcSort,
+    unit_sort: Arc<UnitSort>,
+    bvconst_sort: Arc<BvConstSort>,
+    int_sort: Arc<I64Sort>,
+    solvers: Arc<Mutex<Solvers>>,
+}
+
+impl PrimitiveLike for AssertMulConstant {
+    fn name(&self) -> egglog::ast::Symbol {
+        "solvers-mul-constant".into()
+    }
+
+    fn get_type_constraints(
+        &self,
+        span: &egglog::ast::Span,
+    ) -> Box<dyn egglog::constraint::TypeConstraint> {
+        Box::new(egglog::constraint::SimpleTypeConstraint::new(
+            "solvers-mul-constant".into(),
+            vec![
+                self.v_sort.clone(),
+                self.bvconst_sort.clone(),
+                self.v_sort.clone(),
+                self.int_sort.clone(),
+                self.unit_sort.clone(),
+            ],
+            span.clone(),
+        ))
+    }
+
+    fn apply(
+        &self,
+        values: &[Value],
+        _sorts: (&[ArcSort], &ArcSort),
+        _egraph: Option<&mut EGraph>,
+    ) -> Option<Value> {
+        let solver: &mut std::sync::MutexGuard<'_, Solvers> = &mut self.solvers.lock().unwrap();
+        solver.assert_is_mul_const(values[0], values[1], values[2], values[3].bits);
         IntoSort::store((), &self.unit_sort)
     }
 }
 
 impl Context {
     pub(crate) fn solvers_tactic(&mut self) -> PlanResult<bool> {
-        let mut changed = false;
-        let mut changing = true;
-        while changing {
-            // Rebuild e-graph to get all union-find updates
-            self.egraph.rebuild_nofail();
+        // Rebuild e-graph to get all union-find updates
+        self.egraph.rebuild_nofail();
 
-            // Run solve_premises ruleset to send premises to solvers
-            self.run_cmds(vec![Command::RunSchedule(GenericSchedule::Run(
-                span!(),
-                RunConfig {
-                    ruleset: "solve_premises".into(),
-                    until: None,
-                },
-            ))])?;
+        // Run solve_premises ruleset to send premises to solvers
+        self.run_cmds(vec![Command::RunSchedule(GenericSchedule::Run(
+            span!(),
+            RunConfig {
+                ruleset: "solve_premises".into(),
+                until: None,
+            },
+        ))])?;
 
-            // Process inferred unions
-            let mut solvers = self.solvers.lock().unwrap();
-            changing = solvers.report_new_equalities(&mut self.egraph);
-            if changing {
-                changed = true;
-            }
-            drop(solvers); // Need to drop as inferred equalities will propogate back to solvers here
+        let mut solvers = self.solvers.lock().unwrap();
+        solvers.linear.solve_all_pending();
 
-            // Rebuild the e-graph again
-            self.egraph.rebuild_nofail();
-        }
+        // Rebuild the e-graph again
+        self.egraph.rebuild_nofail();
 
-        Ok(changed)
+        Ok(false)
     }
 }

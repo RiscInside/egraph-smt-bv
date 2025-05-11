@@ -11,7 +11,8 @@
 ; We install proxies for values in the designated `proxy` ruleset.
 
 (ruleset proxy)
-(rule ((= w (Width e))) ((HasProxy (proxy e))) :ruleset proxy)
+(rule ((= w (Width e))) ((HasProxy (proxy e w))) :ruleset proxy)
+(rule ((HasProxy p)) ((delete (HasProxy p))) :ruleset vis)
 
 ; ### `solve_premises` ruleset
 
@@ -20,7 +21,13 @@
 
 (ruleset solve_premises)
 
-; We can report `Add` e-nodes to the linear bitvector solver.
+; We currently only report `Add`, `Const`, and `Mul` to the solver
 
 (rule ((= e (Add e1 e2)) (= e1 (ordering-min e1 e2)) (= w (Width e)))
-    ((linsolve-add e1 e2 e w)) :ruleset solve_premises)
+    ((solvers-add e1 e2 e w)) :ruleset solve_premises)
+
+(rule ((= e (Mul e1 (BvConst c w))))
+    ((solvers-mul-constant e1 c e w)) :ruleset solve_premises)
+
+(rule ((= e (BvConst c w)))
+    ((solvers-constant c e w)) :ruleset solve_premises)

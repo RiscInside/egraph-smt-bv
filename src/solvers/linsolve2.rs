@@ -69,12 +69,14 @@
 //! 0, the alorithm would eventually run out of equations to solve.
 
 use std::{
+    cell::Cell,
     cmp::Reverse,
     collections::{btree_map::Entry, BTreeMap, BTreeSet},
+    hash::{BuildHasher, Hash},
 };
 
 use crate::solvers::Width;
-use hashbrown::{hash_map, HashMap};
+use hashbrown::{hash_map, DefaultHashBuilder, HashMap, HashTable};
 use itertools::Itertools as _;
 use num_bigint::BigUint;
 
@@ -125,6 +127,9 @@ struct DefEntry<V: Variable> {
     equation: LinearFunction<V>,
     /// Timestamp of the last canonicalization
     canonicalization_ts: u64,
+    /// If set, equation has been bottom-up canonicalized, and
+    /// hash matches that of equation
+    bottom_up_hash: Cell<Option<u64>>,
 }
 
 impl<V: Variable> DefEntry<V> {
@@ -144,7 +149,7 @@ impl<V: Variable> DefEntry<V> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 struct Context<V: Variable> {
     mappings: HashMap<V, DefEntry<V>>,
     /// Current canonicalization timestamp. Used to quickly check
@@ -154,6 +159,19 @@ struct Context<V: Variable> {
     rev_deps_map: HashMap<V, (Width, BTreeSet<ParityOrdered<V>>)>,
     /// Updated variable set (for bottom up canonicalization)
     need_recanonicalization: BTreeSet<ParityOrdered<V>>,
+    /// Hash-table with variables of parity 0 that uses hash function
+    /// derived from the matching LinearFunction hash. This map
+    /// is used to discover expressions equivalent to each other.
+    ///
+    /// Note that, by design, this hash-table will contain duplicate
+    /// entries - i.e. it can contain multiple variables that are equal
+    /// based on LinearFunction comparison predicate. Specifically,
+    /// we have an entry for each value here. In fact, we use this
+    /// table with two different equality functions - one comparing
+    /// equations, and one comparing literal variables (for removals).
+    functions_map: HashTable<V>,
+    /// Hash builder for hashing equations in [`function_map`]
+    hash_builder: DefaultHashBuilder,
 }
 
 impl<V: Variable> std::fmt::Display for Context<V> {
@@ -441,11 +459,15 @@ mod canon {
                     lhs_constant: in_progress.cur_constant,
                 };
 
-                // If we were canonizing equation for the variable, we need
-                // to update the mapping for this variable.
-                if let Some((result_var, result_var_parity)) = in_progress.result_var {
-                    let mapping = self.mappings.get_mut(&result_var).unwrap();
+                // If this isn't a recursive call (canonicalizing a variable), return canonicalized
+                // equation as the result
+                let Some((result_var, result_var_parity)) = in_progress.result_var else {
+                    break canon_equation;
+                };
 
+                let mapping = self.mappings.get_mut(&result_var).unwrap();
+
+                if mapping.equation != canon_equation {
                     // Update reverse dependency index
                     Self::update_rev_dep_map_diff(
                         &mut self.rev_deps_map,
@@ -455,10 +477,18 @@ mod canon {
                         &canon_equation,
                     );
 
+                    // As the equation for V has now changed, we might need to remove an entry from `function_map`.
+                    // New entry will be reinserted during bottom up canonicalization pass
+                    if let Some(hash) = mapping.bottom_up_hash.get() {
+                        self.functions_map
+                            .find_entry(hash, |other_val| result_var == *other_val)
+                            .unwrap()
+                            .remove();
+                        mapping.bottom_up_hash.set(None);
+                    }
+
                     mapping.equation = canon_equation;
                     mapping.canonicalization_ts = self.canonicalization_ts;
-                } else {
-                    break canon_equation;
                 }
             }
         }
@@ -520,33 +550,92 @@ mod canon {
             }
         }
 
-        pub(super) fn canonicalize_all_bottom_up(&mut self) {
+        pub(super) fn canonicalize_all_bottom_up(&mut self, mut report_equality: impl FnMut(V, V)) {
             let mut worklist = std::mem::take(&mut self.need_recanonicalization);
 
             while let Some((parity, Reverse(var))) = worklist.pop_last() {
                 let definition = self.mappings.get(&var).unwrap();
-                let canonicalized = self.canonicalize_shallow(&definition.equation);
 
-                if canonicalized != definition.equation {
-                    let definition = self.mappings.get_mut(&var).unwrap();
+                // Perform canonicalization of the entry
+                let definition = if definition.canonicalization_ts != self.canonicalization_ts {
+                    let canonicalized = self.canonicalize_shallow(&definition.equation);
+                    if canonicalized != definition.equation {
+                        let definition = self.mappings.get_mut(&var).unwrap();
 
-                    // Update reverse dependency index
-                    Self::update_rev_dep_map_diff(
-                        &mut self.rev_deps_map,
-                        var,
-                        parity,
-                        &definition.equation,
-                        &canonicalized,
-                    );
+                        // Update reverse dependency index
+                        Self::update_rev_dep_map_diff(
+                            &mut self.rev_deps_map,
+                            var,
+                            parity,
+                            &definition.equation,
+                            &canonicalized,
+                        );
 
-                    // Set new definition
-                    definition.equation = canonicalized;
+                        // Set new definition
+                        definition.equation = canonicalized;
+                        definition.canonicalization_ts = self.canonicalization_ts;
 
-                    // Queue every reverse dependency for recanonicalization
-                    if let Some((_, rev_deps)) = self.rev_deps_map.get(&var) {
-                        worklist.extend(rev_deps.iter());
-                    };
+                        // Remove previous mapping from function_map if exists
+                        if let Some(hash) = definition.bottom_up_hash.get() {
+                            assert_eq!(definition.parity, 0);
+                            // Remove previous mapping
+                            self.functions_map
+                                .find_entry(hash, |variable| *variable == var)
+                                .unwrap()
+                                .remove();
+                            definition.bottom_up_hash.set(None);
+                        }
+
+                        self.mappings.get(&var).unwrap()
+                    } else {
+                        definition
+                    }
+                } else {
+                    definition
+                };
+
+                if definition.bottom_up_hash.get().is_some() {
+                    // Canonical entry with accurately computed hash
+                    continue;
                 }
+
+                // Propogate changes upwards
+                if let Some((_, rev_dep_map)) = self.rev_deps_map.get(&var) {
+                    worklist.extend(rev_dep_map.iter());
+                }
+
+                if definition.parity != 0 {
+                    // Not hashing definitions with parity above 0, as we can't identify equalities based on them
+                    continue;
+                }
+
+                // Report equalities based on simple lhs = rhs equations. This is specifically needed when rhs
+                // is a free variable
+                if definition.equation.lhs_constant.bits() == 0 // Constant is 0
+                    && definition.equation.var_coeff_pairs.len() == 1 // There is only one term
+                    && definition.equation.var_coeff_pairs[0].0.bits() == 1 // It's coefficient is one
+                    && !self
+                        .mappings
+                        .contains_key(&definition.equation.var_coeff_pairs[0].1)
+                {
+                    report_equality(var, definition.equation.var_coeff_pairs[0].1);
+                }
+
+                // Update hash for the parity 0 definition and discover equalities
+                let hash = self.hash_builder.hash_one(&definition.equation);
+                definition.bottom_up_hash.set(Some(hash));
+
+                if let Ok(mapping) = self.functions_map.find_entry(hash, |other| {
+                    self.mappings[other].equation == definition.equation
+                }) {
+                    // Discovered a match!
+                    report_equality(*mapping.get(), var);
+                }
+
+                // Insert mapping for the equation
+                self.functions_map.insert_unique(hash, var, |var| {
+                    self.mappings[var].bottom_up_hash.get().unwrap()
+                });
             }
         }
     }
@@ -611,11 +700,21 @@ impl<V: Variable> Context<V> {
         );
         self.need_recanonicalization
             .remove(&(removed.parity, Reverse(variable)));
+
+        if let Some(hash) = removed.bottom_up_hash.get() {
+            assert_eq!(removed.parity, 0);
+            self.functions_map
+                .find_entry(hash, |other| *other == variable)
+                .unwrap()
+                .remove();
+        }
         Some(removed)
     }
 
     /// Introduce a new mapping for the definition
     fn insert_mapping(&mut self, variable: V, mapping: DefEntry<V>) {
+        assert!(mapping.bottom_up_hash.get().is_none());
+
         Self::update_rev_dep_map_on_insertion(
             &mut self.rev_deps_map,
             variable,
@@ -624,6 +723,7 @@ impl<V: Variable> Context<V> {
         );
         self.need_recanonicalization
             .insert((mapping.parity, Reverse(variable)));
+
         self.mappings.insert(variable, mapping);
     }
 
@@ -686,6 +786,7 @@ impl<V: Variable> Context<V> {
                 parity,
                 equation,
                 canonicalization_ts: self.canonicalization_ts,
+                bottom_up_hash: Cell::new(None),
             },
         );
         // Update canonicalization timestamp
@@ -724,6 +825,8 @@ impl<V: Variable> Default for Solver<V> {
                 canonicalization_ts: 0,
                 rev_deps_map: HashMap::new(),
                 need_recanonicalization: BTreeSet::new(),
+                functions_map: HashTable::new(),
+                hash_builder: DefaultHashBuilder::default(),
             },
             pending_equations: vec![],
             non_canonical: vec![],
@@ -738,6 +841,7 @@ impl<V: Variable> Solver<V> {
     }
 
     pub(crate) fn assert_is_equal(&mut self, old: V, new: V, width: Width) {
+        assert!(old > new, "{} not greater than {}?", old.show(), new.show());
         self.non_canonical.push(old);
         self.assert_is_zero(LinearFunction {
             width,
@@ -792,13 +896,13 @@ impl<V: Variable> Solver<V> {
         }
     }
 
-    pub(crate) fn solve_all_pending(&mut self) {
+    pub(crate) fn solve_all_pending(&mut self, report_equalities: impl FnMut(V, V)) {
         let mut worklist = std::mem::take(&mut self.pending_equations);
         while let Some(equation) = worklist.pop() {
             self.context
                 .solve_step(equation, |equation| worklist.push(equation));
         }
-        self.context.canonicalize_all_bottom_up();
+        self.context.canonicalize_all_bottom_up(report_equalities);
         self.remove_noncanonical();
     }
 }
@@ -811,6 +915,8 @@ mod test {
             format!("v{self}")
         }
     }
+
+    use expect_test::expect;
 
     use super::*;
 
@@ -853,11 +959,14 @@ mod test {
         });
 
         // Solve equations submitted to the system
-        solver.solve_all_pending();
+        solver.solve_all_pending(|_, _| {
+            // No equalities in this problem
+            unreachable!();
+        });
 
         // Since we don't know the exact expected output, we can use a placeholder expectation
         // and then update it with the actual output after first run
-        let expected = expect_test::expect![[r#"
+        let expected = expect![[r#"
             {{
               2^0*v1 = 7199159949078366642*v2 + 15517855851107310130 (mod 2^64)
               2^0*v3 = 17040796058130653496*v2 + 6551417999815801670 (mod 2^64)
@@ -968,9 +1077,12 @@ mod test {
         });
 
         // Solve equations submitted to the system
-        solver.solve_all_pending();
+        let mut pending_equalities = vec![];
+        solver.solve_all_pending(|lhs, rhs| {
+            pending_equalities.push((std::cmp::min(lhs, rhs), std::cmp::max(lhs, rhs)));
+        });
 
-        let expected = expect_test::expect![[r#"
+        let expected = expect![[r#"
             {{
               2^1*v7 = 8 (mod 2^4)
               2^0*v2 = 1*v1 + 0 (mod 2^4)
@@ -984,5 +1096,62 @@ mod test {
             }}"#]];
         let actual = format!("{}", solver.context);
         expected.assert_eq(&actual);
+        // Assert that solver inferred v1 == v2 and v4 == v6
+        assert_eq!(pending_equalities, vec![(1, 2), (4, 6)]);
+    }
+
+    #[test]
+    fn test_associativity_of_add() {
+        let mut solver: Solver<u64> = Solver::default();
+        solver.assert_is_add(1, 2, 12, 32);
+        solver.assert_is_add(2, 3, 23, 32);
+
+        solver.assert_is_add(1, 23, 100, 32);
+        solver.assert_is_add(12, 3, 200, 32);
+
+        solver.solve_all_pending(|lhs, rhs| {
+            assert_eq!(std::cmp::min(lhs, rhs), 100);
+            assert_eq!(std::cmp::max(lhs, rhs), 200);
+        });
+
+        let expected = expect![[r#"
+            {{
+              2^0*v12 = 1*v2 + 1*v1 + 0 (mod 2^32)
+              2^0*v23 = 1*v3 + 1*v2 + 0 (mod 2^32)
+              2^0*v100 = 1*v3 + 1*v2 + 1*v1 + 0 (mod 2^32)
+              2^0*v200 = 1*v3 + 1*v2 + 1*v1 + 0 (mod 2^32)
+
+              v1 of width 32 is used in equations for v200, v100, v12
+              v2 of width 32 is used in equations for v200, v100, v23, v12
+              v3 of width 32 is used in equations for v200, v100, v23
+            }}"#]];
+        let actual = format!("{}", solver.context);
+        expected.assert_eq(&actual);
+    }
+
+    #[test]
+    fn test_union_prune() {
+        let mut solver: Solver<u64> = Solver::default();
+        solver.assert_is_add(1, 2, 4, 32);
+        solver.assert_is_equal(4, 3, 32);
+
+        let mut pending_equalities = vec![];
+        solver.solve_all_pending(|lhs, rhs| {
+            pending_equalities.push((lhs, rhs));
+        });
+
+        // Note no mention of v4
+        let expected = expect![[r#"
+            {{
+              2^0*v3 = 1*v2 + 1*v1 + 0 (mod 2^32)
+
+              v1 of width 32 is used in equations for v3
+              v2 of width 32 is used in equations for v3
+            }}"#]];
+        let actual = format!("{}", solver.context);
+        expected.assert_eq(&actual);
+
+        // We currently push equalities back to the user, but that's probably not a huge deal
+        assert_eq!(pending_equalities, vec![(3, 4)]);
     }
 }

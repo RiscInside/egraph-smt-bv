@@ -31,7 +31,6 @@ pub(crate) struct Solvers {
     /// Table of bitvector constants
     pub(crate) bv_constants_index: BvConstTable,
     /// Symbol for "V"
-    #[allow(dead_code)]
     pub(crate) v_symbol: Symbol,
 }
 
@@ -261,11 +260,26 @@ impl Context {
         ))])?;
 
         let mut solvers = self.solvers.lock().unwrap();
-        solvers.linear.solve_all_pending();
+
+        // Push equalities from the union solver
+        let v_symbol = solvers.v_symbol;
+        let mut unions_count = 0;
+        solvers.linear.solve_all_pending(|lhs, rhs| {
+            unions_count += 1;
+            self.egraph.union(lhs.bits, rhs.bits, v_symbol);
+        });
+        drop(solvers);
 
         // Rebuild the e-graph again
         self.egraph.rebuild_nofail();
 
-        Ok(false)
+        if unions_count != 0 {
+            self.text(&format!(
+                "Linear solver submitted {} unions (not all of them necessarily canonical)",
+                unions_count
+            ))?;
+        }
+
+        Ok(unions_count != 0)
     }
 }

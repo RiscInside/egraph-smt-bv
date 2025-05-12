@@ -69,7 +69,6 @@
 //! 0, the alorithm would eventually run out of equations to solve.
 
 use std::{
-    cell::Cell,
     cmp::Reverse,
     collections::{btree_map::Entry, BTreeMap, BTreeSet},
 };
@@ -90,7 +89,7 @@ pub(super) trait Variable: Copy + Ord + std::hash::Hash + std::fmt::Debug + 'sta
 }
 
 /// Linear function of a set of variables.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 struct LinearFunction<V: Variable> {
     // N in Z/2^ZN
     width: Width,
@@ -125,7 +124,7 @@ struct DefEntry<V: Variable> {
     /// Equation for `2^p * v`
     equation: LinearFunction<V>,
     /// Timestamp of the last canonicalization
-    canonicalization_ts: Cell<u64>,
+    canonicalization_ts: u64,
 }
 
 impl<V: Variable> DefEntry<V> {
@@ -153,6 +152,8 @@ struct Context<V: Variable> {
     canonicalization_ts: u64,
     /// Reverse dependency map
     rev_deps_map: HashMap<V, (Width, BTreeSet<ParityOrdered<V>>)>,
+    /// Updated variable set (for bottom up canonicalization)
+    need_recanonicalization: BTreeSet<ParityOrdered<V>>,
 }
 
 impl<V: Variable> std::fmt::Display for Context<V> {
@@ -161,7 +162,7 @@ impl<V: Variable> std::fmt::Display for Context<V> {
         for (lhs, entry) in self
             .mappings
             .iter()
-            .sorted_by_key(|(lhs, entry)| (entry.parity, Reverse(*lhs)))
+            .sorted_by_key(|(lhs, entry)| (Reverse(entry.parity), *lhs))
         {
             writeln!(
                 f,
@@ -192,9 +193,9 @@ impl<V: Variable> std::fmt::Display for Context<V> {
 type ParityOrdered<V> = (Parity, Reverse<V>);
 
 /// Reduce coefficient to a given parity
-fn reduce_to_parity(coeff: Coefficient, parity: Parity) -> (Coefficient, Coefficient) {
+fn reduce_to_parity(coeff: &Coefficient, parity: Parity) -> (Coefficient, Coefficient) {
     (
-        coeff.clone() >> parity,
+        coeff >> parity,
         coeff & ((BigUint::from(1u32) << parity) - BigUint::from(1u32)),
     )
 }
@@ -275,7 +276,7 @@ impl<V: Variable> Context<V> {
 /// Implementation of the canonicalization procedure. Since we might
 /// be potentially be dealing with thousands of values, this implementation
 /// is entirely non-recursive
-mod top_down_canon {
+mod canon {
     use super::*;
 
     /// One of the recursive canonicalizations in-flight.
@@ -298,33 +299,42 @@ mod top_down_canon {
     }
 
     impl<V: Variable> Context<V> {
+        fn add_variable(
+            &self,
+            variable: V,
+            width: Width,
+            pending: &mut BTreeMap<ParityOrdered<V>, BigUint>,
+            multiplier: BigUint,
+            inclusive_bound: &BigUint,
+        ) {
+            match pending.entry(self.as_ordered_var(variable, width)) {
+                Entry::Vacant(vacant_entry) => {
+                    vacant_entry.insert(multiplier);
+                }
+                Entry::Occupied(mut occupied_entry) => {
+                    *occupied_entry.get_mut() += multiplier;
+                    *occupied_entry.get_mut() &= inclusive_bound;
+                    if occupied_entry.get().bits() == 0 {
+                        occupied_entry.remove();
+                    }
+                }
+            }
+        }
+
         fn add_equation(
             &self,
-            in_progress: &mut InProgress<V>,
+            constant: &mut BigUint,
+            pending: &mut BTreeMap<ParityOrdered<V>, BigUint>,
             equation: &LinearFunction<V>,
             multiplier: &BigUint,
             inclusive_bound: &BigUint,
         ) {
-            in_progress.cur_constant += &equation.lhs_constant * multiplier;
-            in_progress.cur_constant &= inclusive_bound;
+            *constant += &equation.lhs_constant * multiplier;
+            *constant &= inclusive_bound;
 
             for (coeff, var) in equation.var_coeff_pairs.iter() {
                 let scaled_coeff = (multiplier * coeff) & inclusive_bound;
-                match in_progress
-                    .pending
-                    .entry(self.as_ordered_var(*var, equation.width))
-                {
-                    Entry::Vacant(vacant_entry) => {
-                        vacant_entry.insert(scaled_coeff);
-                    }
-                    Entry::Occupied(mut occupied_entry) => {
-                        *occupied_entry.get_mut() += scaled_coeff;
-                        *occupied_entry.get_mut() &= inclusive_bound;
-                        if occupied_entry.get().bits() == 0 {
-                            occupied_entry.remove();
-                        }
-                    }
-                }
+                self.add_variable(*var, equation.width, pending, scaled_coeff, inclusive_bound);
             }
         }
 
@@ -341,7 +351,13 @@ mod top_down_canon {
                 pending: BTreeMap::new(),
                 result_var,
             };
-            self.add_equation(&mut result, equation, &BigUint::from(1u32), inclusive_bound);
+            self.add_equation(
+                &mut result.cur_constant,
+                &mut result.pending,
+                equation,
+                &BigUint::from(1u32),
+                inclusive_bound,
+            );
             result
         }
 
@@ -359,7 +375,8 @@ mod top_down_canon {
                 if let Some((done_var, multiplier)) = std::mem::take(&mut in_progress.subst) {
                     let done_var_equation = &self.mappings[&done_var].equation;
                     self.add_equation(
-                        &mut in_progress,
+                        &mut in_progress.cur_constant,
+                        &mut in_progress.pending,
                         done_var_equation,
                         &multiplier,
                         &inclusive_bound,
@@ -383,16 +400,17 @@ mod top_down_canon {
                     assert_eq!(entry.parity, parity);
 
                     // Leave residual * inner_var in the cur_var_and_coeffs.
-                    let (multiplier, residual) = reduce_to_parity(coeff, entry.parity);
+                    let (multiplier, residual) = reduce_to_parity(&coeff, entry.parity);
                     if residual.bits() != 0 {
                         in_progress.cur_var_and_coeffs.push((residual, inner_var));
                     }
 
                     assert_ne!(multiplier.bits(), 0);
                     // If entry has been recently canonicalized, we can skip outer loop iteration here
-                    if entry.canonicalization_ts.get() == self.canonicalization_ts {
+                    if entry.canonicalization_ts == self.canonicalization_ts {
                         self.add_equation(
-                            &mut in_progress,
+                            &mut in_progress.cur_constant,
+                            &mut in_progress.pending,
                             &entry.equation,
                             &multiplier,
                             &inclusive_bound,
@@ -438,9 +456,96 @@ mod top_down_canon {
                     );
 
                     mapping.equation = canon_equation;
-                    mapping.canonicalization_ts.set(self.canonicalization_ts);
+                    mapping.canonicalization_ts = self.canonicalization_ts;
                 } else {
                     break canon_equation;
+                }
+            }
+        }
+
+        /// Canonicalize an equation, assuming that all variables mentioned in it have already been canonicalized
+        pub(super) fn canonicalize_shallow(
+            &self,
+            equation: &LinearFunction<V>,
+        ) -> LinearFunction<V> {
+            let mut constant = equation.lhs_constant.clone();
+            let mut result_map = BTreeMap::new();
+            let width = equation.width;
+            let inclusive_bound = (BigUint::from(1u32) << width) - BigUint::from(1u32);
+
+            for (inner_coeff, inner_var) in equation.var_coeff_pairs.iter() {
+                let Some(entry) = self
+                    .mappings
+                    .get(inner_var)
+                    .filter(|entry| entry.parity < inner_coeff.bits())
+                else {
+                    self.add_variable(
+                        *inner_var,
+                        width,
+                        &mut result_map,
+                        inner_coeff.clone(),
+                        &inclusive_bound,
+                    );
+                    continue;
+                };
+
+                let (multiplier, residual) = reduce_to_parity(inner_coeff, entry.parity);
+                if residual.bits() != 0 {
+                    self.add_variable(
+                        *inner_var,
+                        width,
+                        &mut result_map,
+                        residual,
+                        &inclusive_bound,
+                    );
+                }
+
+                assert_ne!(multiplier.bits(), 0);
+                self.add_equation(
+                    &mut constant,
+                    &mut result_map,
+                    &entry.equation,
+                    &multiplier,
+                    &inclusive_bound,
+                );
+            }
+
+            LinearFunction {
+                width,
+                var_coeff_pairs: result_map
+                    .into_iter()
+                    .map(|((_, Reverse(var)), coeff)| (coeff, var))
+                    .collect(),
+                lhs_constant: constant,
+            }
+        }
+
+        pub(super) fn canonicalize_all_bottom_up(&mut self) {
+            let mut worklist = std::mem::take(&mut self.need_recanonicalization);
+
+            while let Some((parity, Reverse(var))) = worklist.pop_last() {
+                let definition = self.mappings.get(&var).unwrap();
+                let canonicalized = self.canonicalize_shallow(&definition.equation);
+
+                if canonicalized != definition.equation {
+                    let definition = self.mappings.get_mut(&var).unwrap();
+
+                    // Update reverse dependency index
+                    Self::update_rev_dep_map_diff(
+                        &mut self.rev_deps_map,
+                        var,
+                        parity,
+                        &definition.equation,
+                        &canonicalized,
+                    );
+
+                    // Set new definition
+                    definition.equation = canonicalized;
+
+                    // Queue every reverse dependency for recanonicalization
+                    if let Some((_, rev_deps)) = self.rev_deps_map.get(&var) {
+                        worklist.extend(rev_deps.iter());
+                    };
                 }
             }
         }
@@ -504,6 +609,8 @@ impl<V: Variable> Context<V> {
             #[cfg(debug_assertions)]
             ignore_variable,
         );
+        self.need_recanonicalization
+            .remove(&(removed.parity, Reverse(variable)));
         Some(removed)
     }
 
@@ -515,6 +622,8 @@ impl<V: Variable> Context<V> {
             mapping.parity,
             &mapping.equation,
         );
+        self.need_recanonicalization
+            .insert((mapping.parity, Reverse(variable)));
         self.mappings.insert(variable, mapping);
     }
 
@@ -576,7 +685,7 @@ impl<V: Variable> Context<V> {
             DefEntry {
                 parity,
                 equation,
-                canonicalization_ts: Cell::new(self.canonicalization_ts),
+                canonicalization_ts: self.canonicalization_ts,
             },
         );
         // Update canonicalization timestamp
@@ -603,6 +712,8 @@ pub(in crate::solvers) struct Solver<V: Variable> {
     context: Context<V>,
     // TODO: consider using a different data-structure to track pending-equations, e.g. based on parity
     pending_equations: Vec<LinearFunction<V>>,
+    // Non-canonical values
+    non_canonical: Vec<V>,
 }
 
 impl<V: Variable> Default for Solver<V> {
@@ -612,18 +723,22 @@ impl<V: Variable> Default for Solver<V> {
                 mappings: HashMap::new(),
                 canonicalization_ts: 0,
                 rev_deps_map: HashMap::new(),
+                need_recanonicalization: BTreeSet::new(),
             },
             pending_equations: vec![],
+            non_canonical: vec![],
         }
     }
 }
 
 impl<V: Variable> Solver<V> {
     fn assert_is_zero(&mut self, equation: LinearFunction<V>) {
-        self.pending_equations.push(equation);
+        self.pending_equations
+            .push(self.context.canonicalize_shallow(&equation));
     }
 
     pub(crate) fn assert_is_equal(&mut self, old: V, new: V, width: Width) {
+        self.non_canonical.push(old);
         self.assert_is_zero(LinearFunction {
             width,
             var_coeff_pairs: vec![
@@ -665,13 +780,26 @@ impl<V: Variable> Solver<V> {
         });
     }
 
+    /// Remove non-canonical values AFTER bottom-up canonicalization. It is absolutely crucial this
+    /// is done after, as otherwise solver will silently drop equations.
+    fn remove_noncanonical(&mut self) {
+        for value in std::mem::take(&mut self.non_canonical) {
+            self.context.remove_mapping(
+                value,
+                #[cfg(debug_assertions)]
+                None,
+            );
+        }
+    }
+
     pub(crate) fn solve_all_pending(&mut self) {
         let mut worklist = std::mem::take(&mut self.pending_equations);
-
         while let Some(equation) = worklist.pop() {
             self.context
                 .solve_step(equation, |equation| worklist.push(equation));
         }
+        self.context.canonicalize_all_bottom_up();
+        self.remove_noncanonical();
     }
 }
 
@@ -727,20 +855,13 @@ mod test {
         // Solve equations submitted to the system
         solver.solve_all_pending();
 
-        // Force RREF by canonicalizing equation mentioning all variables
-        solver.context.canonicalize(&LinearFunction {
-            width: 64,
-            var_coeff_pairs: (1u64..5).map(|var| (BigUint::from(1u32), var)).collect(),
-            lhs_constant: BigUint::from(0u32),
-        });
-
         // Since we don't know the exact expected output, we can use a placeholder expectation
         // and then update it with the actual output after first run
         let expected = expect_test::expect![[r#"
             {{
-              2^0*v4 = 12597058849815457749*v2 + 11030395062240253015 (mod 2^64)
-              2^0*v3 = 17040796058130653496*v2 + 6551417999815801670 (mod 2^64)
               2^0*v1 = 7199159949078366642*v2 + 15517855851107310130 (mod 2^64)
+              2^0*v3 = 17040796058130653496*v2 + 6551417999815801670 (mod 2^64)
+              2^0*v4 = 12597058849815457749*v2 + 11030395062240253015 (mod 2^64)
 
               v2 of width 64 is used in equations for v4, v3, v1
             }}"#]];
@@ -848,22 +969,16 @@ mod test {
 
         // Solve equations submitted to the system
         solver.solve_all_pending();
-        // Force RREF by canonicalizing equation mentioning all variables
-        solver.context.canonicalize(&LinearFunction {
-            width: 4,
-            var_coeff_pairs: (1u64..9).map(|var| (BigUint::from(1u32), var)).collect(),
-            lhs_constant: BigUint::from(0u32),
-        });
 
         let expected = expect_test::expect![[r#"
             {{
-              2^0*v8 = 15 (mod 2^4)
-              2^0*v6 = 2 (mod 2^4)
-              2^0*v5 = 1 (mod 2^4)
-              2^0*v4 = 2 (mod 2^4)
-              2^0*v3 = 14 (mod 2^4)
-              2^0*v2 = 1*v1 + 0 (mod 2^4)
               2^1*v7 = 8 (mod 2^4)
+              2^0*v2 = 1*v1 + 0 (mod 2^4)
+              2^0*v3 = 14 (mod 2^4)
+              2^0*v4 = 2 (mod 2^4)
+              2^0*v5 = 1 (mod 2^4)
+              2^0*v6 = 2 (mod 2^4)
+              2^0*v8 = 15 (mod 2^4)
 
               v1 of width 4 is used in equations for v2
             }}"#]];

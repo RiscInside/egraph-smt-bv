@@ -18,7 +18,20 @@ pub(crate) mod proxy;
 use bvconst::{BvConst, BvConstSort, BvConstTable};
 use proxy::ProxySort;
 
-impl linsolve2::Variable for Value {
+/// A trait for symbolic variable types. This is implemented for [`Value`] and [`u64`]
+/// (for testing purposes).
+pub(super) trait Variable: Copy + Ord + std::hash::Hash + std::fmt::Debug + 'static {
+    /// Display variable for debugging purposes
+    fn show(&self) -> String;
+}
+
+impl Variable for u64 {
+    fn show(&self) -> String {
+        format!("v{self}")
+    }
+}
+
+impl Variable for Value {
     fn show(&self) -> String {
         format!("v{}", self.bits)
     }

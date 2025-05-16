@@ -75,7 +75,7 @@ use std::{
     hash::{BuildHasher, Hash},
 };
 
-use crate::solvers::Width;
+use crate::solvers::{Variable, Width};
 use hashbrown::{hash_map, DefaultHashBuilder, HashMap, HashTable};
 use itertools::Itertools as _;
 use num_bigint::BigUint;
@@ -83,12 +83,6 @@ use num_bigint::BigUint;
 type Coefficient = BigUint;
 type Constant = BigUint;
 type Parity = u64;
-
-/// A trait for variable types
-pub(super) trait Variable: Copy + Ord + std::hash::Hash + std::fmt::Debug + 'static {
-    /// Display variable for debugging purposes
-    fn show(&self) -> String;
-}
 
 /// Linear function of a set of variables.
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -909,13 +903,6 @@ impl<V: Variable> Solver<V> {
 
 #[cfg(test)]
 mod test {
-    // For testing purposes
-    impl Variable for u64 {
-        fn show(&self) -> String {
-            format!("v{self}")
-        }
-    }
-
     use expect_test::expect;
 
     use super::*;

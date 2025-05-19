@@ -118,6 +118,14 @@
 ; ones implemented in the Rust sort checker.
 
 (rule ((= e (Equal x y))) ((set (Width e) 1)) :ruleset width)
+(rule ((= e (Ule x y))) ((set (Width e) 1)) :ruleset width)
+(rule ((= e (Ult x y))) ((set (Width e) 1)) :ruleset width)
+(rule ((= e (Uge x y))) ((set (Width e) 1)) :ruleset width)
+(rule ((= e (Ugt x y))) ((set (Width e) 1)) :ruleset width)
+(rule ((= e (Sle x y))) ((set (Width e) 1)) :ruleset width)
+(rule ((= e (Slt x y))) ((set (Width e) 1)) :ruleset width)
+(rule ((= e (Sge x y))) ((set (Width e) 1)) :ruleset width)
+(rule ((= e (Sgt x y))) ((set (Width e) 1)) :ruleset width)
 
 (rule ((= e (ITE c e1 e2)) (= w1 (Width e1))) ((set (Width e) w1)) :ruleset width)
 (rule ((= e (ITE c e1 e2)) (= w2 (Width e2))) ((set (Width e) w2)) :ruleset width)

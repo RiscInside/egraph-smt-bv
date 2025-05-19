@@ -1,0 +1,53 @@
+; <summary>implications.egg - safe rules for maintaining implication graph between e-nodes</summary>.
+
+; Implication graph is a *relatively* inexpensive way of doing basic boolean reasoning. In particular, it can safely recover associativity of many boolean operators.
+
+; ### `==>` Relation
+
+; We introduce a new `==>` relation to keep track of implication graph between e-clases.
+
+(relation ==> (V V))
+
+; ### Equality from implication
+
+; As a simple rule, we can equate any two e-classes that imply each other.
+
+(rule ((==> a b) (==> b a)) ((union a b)) :ruleset fold)
+
+; ### Reflexivity
+
+; Reflexive inferences are redundant and can be removed.
+
+(rule ((==> a a)) ((delete (==> a a))) :ruleset fold)
+
+; ### Transitivity
+
+(rule ((==> a b) (==> b c)) ((==> a c)) :ruleset safe)
+
+; ### Contra-positive implication
+
+(rule ((==> a b)) ((==> (Not b) (Not a))) :ruleset safe)
+
+; ### Implying false/true
+
+(rule ((==> a (BvAll true w))) ((subsume (==> a (BvAll true w)))) :ruleset fold)
+(rule ((==> a (BvAll false w))) ((union a (BvAll false w)) (subsume (==> a (BvAll false w)))) :ruleset fold)
+
+; ### Being impliied by false/true
+
+(rule ((==> (BvAll false w) a)) ((subsume (==> (BvAll false w) a))) :ruleset fold)
+(rule ((==> (BvAll true w) a)) ((union a (BvAll true w)) (subsume (==> (BvAll true w) a))) :ruleset fold)
+
+; ### Implications arising from And
+
+(rule ((==> a b) (==> a c) (= d (And b c))) ((==> a d)) :ruleset safe)
+(rule ((= a (And b c))) ((==> a b) (==> a c)) :ruleset safe)
+
+; ### Implication of self-negation
+
+(rule ((==> a (Not a)) (= w (Width a))) ((union a (BvAll false w))) :ruleset fold)
+
+; ### Lifting implication from Implies
+
+(rule ((= (BvAll true w) (Implies a b))) ((==> a b)) :ruleset fold)
+(rule ((= (BvAll false w) (Implies a b))) ((==> b (Not a))) :ruleset fold)

@@ -340,7 +340,7 @@ checksum = "675e35c02a51bb4d4618cb4885b3839ce6d1787c97b664474d9208d074742e20"
 [[package]]
 name = "egglog"
 version = "0.4.0"
-source = "git+https://github.com/RiscInside/egglog?rev=91e24715e1137c109c6bb9de64189df86052f698#91e24715e1137c109c6bb9de64189df86052f698"
+source = "git+https://github.com/RiscInside/egglog?rev=c2f67eb8e2edc933c7beed84e98772b76affe61b#c2f67eb8e2edc933c7beed84e98772b76affe61b"
 dependencies = [
  "chrono",
  "clap 4.5.20",

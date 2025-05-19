@@ -60,7 +60,7 @@ impl Plan {
     pub(crate) fn check_sat_default(timeout: Option<std::time::Duration>) -> Plan {
         // Initial preprocessing pass
         let saturate_first = Plan::Saturate(vec![
-            Plan::Leaf(Tactic::RunRuleset(Symbol::from("width"))),
+            Plan::Saturate(vec![Plan::Leaf(Tactic::RunRuleset(Symbol::from("width")))]),
             Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold"))),
             Plan::Leaf(Tactic::RunRuleset(Symbol::from("eq"))),
         ]);
@@ -73,7 +73,9 @@ impl Plan {
                     Plan::Saturate(vec![
                         Plan::Saturate(vec![
                             Plan::Saturate(vec![
-                                Plan::Leaf(Tactic::RunRuleset(Symbol::from("width"))),
+                                Plan::Saturate(vec![Plan::Leaf(Tactic::RunRuleset(Symbol::from(
+                                    "width",
+                                )))]),
                                 Plan::Leaf(Tactic::RunRuleset(Symbol::from("proxy"))),
                                 Plan::Leaf(Tactic::RunRuleset(Symbol::from("eq"))),
                                 Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold"))),
@@ -244,13 +246,15 @@ impl Context {
                 *report = report.union(&delta);
 
                 // Try to rebuild
-                if self.egraph.rebuild().is_err() {
+
+                if let Err(error) = self.egraph.rebuild() {
                     self.text("**UNSOUNDNESS DETECTED during rebuild**")?;
                     self.newline()?;
                     self.text(&format!("Offending ruleset: {ruleset}\n"))?;
                     self.newline()?;
                     self.text("Matched rules:")?;
                     self.print_all_applied_rules(report)?;
+                    self.text(&format!("Error: {}\n", error))?;
                     panic!("Unsoundness detected during rebuilding");
                 }
 

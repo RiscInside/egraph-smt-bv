@@ -98,6 +98,36 @@ impl Sort for BvConstSort {
             "exceeds-bitwidth" =
                 |a: C, w: i64| -> Opt { Some(()).filter(|_| a.0.bits() > (w as u64)) }
         );
+        add_primitives!(info, "bool-uge" = |a: C, b: C| -> bool { a.0 >= b.0 });
+        add_primitives!(info, "bool-ugt" = |a: C, b: C| -> bool { a.0 > b.0 });
+
+        add_primitives!(
+            info,
+            "bool-sge" = |a: C, b: C, w: i64| -> bool {
+                {
+                    let a_sign_bit = &a.0 & (BigUint::from(1u32) << (w - 1));
+                    let b_sign_bit = &b.0 & (BigUint::from(1u32) << (w - 1));
+                    let a_unsign = &a.0 - &a_sign_bit;
+                    let b_unsign = &b.0 - &b_sign_bit;
+
+                    (b_sign_bit + a_unsign) >= (a_sign_bit + b_unsign)
+                }
+            }
+        );
+
+        add_primitives!(
+            info,
+            "bool-sgt" = |a: C, b: C, w: i64| -> bool {
+                {
+                    let a_sign_bit = &a.0 & (BigUint::from(1u32) << (w - 1));
+                    let b_sign_bit = &b.0 & (BigUint::from(1u32) << (w - 1));
+                    let a_unsign = &a.0 - &a_sign_bit;
+                    let b_unsign = &b.0 - &b_sign_bit;
+
+                    (b_sign_bit + a_unsign) > (a_sign_bit + b_unsign)
+                }
+            }
+        );
     }
 
     fn extract_term(

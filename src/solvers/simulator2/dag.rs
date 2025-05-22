@@ -144,8 +144,6 @@ pub(in crate::solvers) struct Dag<V: Variable> {
     input_slices: HashMap<String, Slice>,
     /// Size of the input bitvector. This includes computable input portions
     input_len: Width,
-    /// Sealed mode. If true, no more input functional dependencies can be introduced
-    sealed: bool,
 }
 
 impl<V: Variable> Default for Dag<V> {
@@ -156,7 +154,6 @@ impl<V: Variable> Default for Dag<V> {
             last_update_ts: 0,
             input_slices: Default::default(),
             input_len: 0,
-            sealed: false,
         }
     }
 }

@@ -6,3 +6,11 @@
 (rule ((= e (Sgt a b))) ((union e (Slt b a)) (delete (Sgt a b))) :ruleset fold)
 (rule ((= e (Uge a b))) ((union e (Ule b a)) (delete (Uge a b))) :ruleset fold)
 (rule ((= e (Ugt a b))) ((union e (Ult b a)) (delete (Ugt a b))) :ruleset fold)
+
+; ### Constant-folding of comparisons
+
+(rewrite (Uge (BvConst a w) (BvConst b w)) (BvAll (bool-uge a b) 1) :subsume :ruleset fold)
+(rewrite (Ugt (BvConst a w) (BvConst b w)) (BvAll (bool-ugt a b) 1) :subsume :ruleset fold)
+(rewrite (Sge (BvConst a w) (BvConst b w)) (BvAll (bool-sge a b w) 1) :subsume :ruleset fold)
+(rewrite (Sgt (BvConst a w) (BvConst b w)) (BvAll (bool-sgt a b w) 1) :subsume :ruleset fold)
+

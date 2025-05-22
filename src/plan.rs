@@ -23,8 +23,10 @@ lazy_static! {
 pub(crate) enum Tactic {
     /// Run egglog ruleset
     RunRuleset(Symbol),
-    /// Run native solvers
-    RunSolvers,
+    /// Run linear solver
+    RunLinSolve,
+    /// Dump execution DAG to file
+    DumpDag(PathBuf),
     /// Dump the current e-graph to a json file
     DumpJson(PathBuf),
     /// Dump the current e-graph html to a file
@@ -66,6 +68,7 @@ impl Plan {
         ]);
         // Run the `once` ruleset with very explosive rules
         let run_once = Plan::Leaf(Tactic::RunRuleset(Symbol::from("once")));
+
         // Build the main reasoning block based on repetition.
         let repeat_block = Plan::Seq(vec![
             Plan::Repeat(
@@ -73,16 +76,16 @@ impl Plan {
                     Plan::Saturate(vec![
                         Plan::Saturate(vec![
                             Plan::Saturate(vec![
-                                Plan::Saturate(vec![Plan::Leaf(Tactic::RunRuleset(Symbol::from(
-                                    "width",
-                                )))]),
-                                Plan::Leaf(Tactic::RunRuleset(Symbol::from("proxy"))),
+                                Plan::Saturate(vec![
+                                    Plan::Leaf(Tactic::RunRuleset("width".into())),
+                                    Plan::Leaf(Tactic::RunRuleset("snitch".into())),
+                                ]),
                                 Plan::Leaf(Tactic::RunRuleset(Symbol::from("eq"))),
                                 Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold"))),
                             ]),
-                            Plan::Leaf(Tactic::RunSolvers),
+                            Plan::Leaf(Tactic::RunRuleset(Symbol::from("safe"))),
                         ]),
-                        Plan::Leaf(Tactic::RunRuleset(Symbol::from("safe"))),
+                        Plan::Leaf(Tactic::RunLinSolve),
                     ]),
                     Plan::Leaf(Tactic::RunRuleset(Symbol::from("slow"))),
                 ],
@@ -99,7 +102,12 @@ impl Plan {
             repeat_block
         };
 
-        Plan::Seq(vec![saturate_first, run_once, repeat_block])
+        Plan::Seq(vec![
+            saturate_first,
+            Plan::Saturate(vec![Plan::Leaf(Tactic::RunRuleset("snitch".into()))]),
+            run_once,
+            repeat_block,
+        ])
     }
 
     /// Parse the plan from concrete SExpr
@@ -108,10 +116,10 @@ impl Plan {
             SExpr::Application(sexprs) => sexprs,
             SExpr::Symbol(symbol) => match symbol.0.as_str() {
                 ruleset @ ("safe" | "explosive" | "slow" | "fold" | "width" | "eq" | "once"
-                | "proxy" | "solve_premises") => {
+                | "snitch") => {
                     return Ok(Plan::Leaf(Tactic::RunRuleset(ruleset.into())));
                 }
-                "solvers" => return Ok(Plan::Leaf(Tactic::RunSolvers)),
+                "linsolve" => return Ok(Plan::Leaf(Tactic::RunLinSolve)),
                 _ => bail!("Unknown tactic: `{}`", symbol.0),
             },
             SExpr::Constant(Constant::String(name)) => {
@@ -153,6 +161,12 @@ impl Plan {
             {
                 let path = PathBuf::from(path);
                 Ok(Plan::Leaf(Tactic::DumpJson(path)))
+            }
+            [SExpr::Symbol(name), SExpr::Constant(Constant::String(path))]
+                if name.0 == "dump-dag" =>
+            {
+                let path = PathBuf::from(path);
+                Ok(Plan::Leaf(Tactic::DumpDag(path)))
             }
             [SExpr::Symbol(name), SExpr::Constant(Constant::String(path))]
                 if name.0 == "dump-html" =>
@@ -269,7 +283,7 @@ impl Context {
 
                 Ok(updated)
             }
-            Tactic::RunSolvers => self.solvers_tactic(),
+            Tactic::RunLinSolve => self.linsolve_tactic(),
             Tactic::DumpJson(path) => {
                 self.dump_json(path)?;
                 Ok(false)
@@ -280,6 +294,10 @@ impl Context {
             }
             Tactic::DumpHtmlHistory(path) => {
                 self.dump_html_history(path)?;
+                Ok(false)
+            }
+            Tactic::DumpDag(path) => {
+                self.dump_dag_tactic(path)?;
                 Ok(false)
             }
             Tactic::Log(msg) => {

@@ -31,11 +31,11 @@
 
 (rule ((= tt (Equal e1 e2))) ((union e1 e2)) :ruleset eq)
 
-; ## Simplifying equalities
+; ### Simplifying equalities
 
 (rewrite (Equal e e) tt :subsume :ruleset fold)
 (rewrite (Equal (BvConst a w) (BvConst b w)) ff :subsume :ruleset fold :when ((!= a b)))
 
-; ## Removing redundant Eq e-nodes
+; ### Removing redundant Eq e-nodes
 
 (rule ((= tt (Equal v v))) ((delete (Equal v v))) :ruleset fold)

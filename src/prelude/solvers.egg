@@ -3,31 +3,80 @@
 ; ### Proxies
 
 ; Proxies keep track of newly discovered equalities on SMT2LIB values. Updates are received
-; via canonicilize calls on Proxy values during rebuilding. To make sure that values are
-; actually rebuilt, we keep them in `HasProxy` relation.
+; via canonicilize calls on Proxy values during rebuilding. For each value, we store it's
+; matching proxy.
 
-(relation HasProxy (Proxy))
+(function VProxy (V) Proxy :no-merge)
 
-; We install proxies for values in the designated `proxy` ruleset.
+; We can ignore proxies for visualization purposes.
 
-(ruleset proxy)
-(rule ((= w (Width e))) ((HasProxy (proxy e w))) :ruleset proxy)
-(rule ((HasProxy p)) ((delete (HasProxy p))) :ruleset vis)
+(rule ((VProxy e)) ((delete (VProxy e))) :ruleset vis)
 
-; ### `solve_premises` ruleset
+; ### Bottom-up equation reporting
 
-; `solve_premises` ruleset reports equations native solvers might be interested in
-; via the reporting interface
-
-(ruleset solve_premises)
-
-; We currently only report `Add`, `Const`, and `Mul` to the solver
-
-(rule ((= e (Add e1 e2)) (= e1 (ordering-min e1 e2)) (= w (Width e)))
-    ((solvers-add e1 e2 e w)) :ruleset solve_premises)
-
-(rule ((= e (Mul e1 (BvConst c w))))
-    ((solvers-mul-constant e1 c e w)) :ruleset solve_premises)
+; We report relevant discovered equations in the snitch ruleset. This ruleset also installs proxies
+; for values.
 
 (rule ((= e (BvConst c w)))
-    ((solvers-constant c e w)) :ruleset solve_premises)
+    ((solvers-constant c e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
+
+(rule ((= e (Equal a b)) (VProxy a) (VProxy b))
+    ((solvers-eq a b e) (set (VProxy e) (proxy e 1))) :ruleset snitch)
+
+(rule ((= e (Concat a b)) (= w (Width e)) (VProxy a) (VProxy b))
+    ((solvers-concat a b e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+
+(rule ((= e (Extract i j a)) (= w (Width e)) (VProxy a))
+    ((solvers-extract a i j e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+
+(rule ((= e (ITE c t o)) (= w (Width e)) (VProxy c) (VProxy t) (VProxy o))
+    ((solvers-ite c t o e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+
+(rule ((= e (Not a)) (= w (Width e)) (VProxy a)) 
+    ((solvers-not a e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+
+(rule ((= e (And a b)) (= w (Width e)) (VProxy a) (VProxy b))
+    ((solvers-and a b e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+
+(rule ((= e (Or a b)) (= w (Width e)) (VProxy a) (VProxy b))
+    ((solvers-or a b e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+
+(rule ((= e (Xor a b)) (= w (Width e)) (VProxy a) (VProxy b))
+    ((solvers-xor a b e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+
+(rule ((= e (Neg a)) (= w (Width e)) (VProxy a)) 
+    ((solvers-neg a e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+
+(rule ((= e (Add e1 e2)) (VProxy e1) (VProxy e2) (= w (Width e1)))
+    ((solvers-add e1 e2 e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
+
+(rule ((= e (Ule a b)) (VProxy a) (VProxy b))
+    ((solvers-ule a b e) (set (VProxy e) (proxy e 1))) :ruleset snitch)
+
+(rule ((= e (Ult a b)) (VProxy a) (VProxy b))
+    ((solvers-ule a b e) (set (VProxy e) (proxy e 1))) :ruleset snitch)
+
+(rule ((= e (Sle a b)) (VProxy a) (VProxy b))
+    ((solvers-ule a b e) (set (VProxy e) (proxy e 1))) :ruleset snitch)
+
+(rule ((= e (Slt a b)) (VProxy a) (VProxy b))
+    ((solvers-ule a b e) (set (VProxy e) (proxy e 1))) :ruleset snitch)
+
+(rule ((= e (Mul e1 e2)) (VProxy e1) (VProxy e2) (= w (Width e1)))
+    ((solvers-mul e1 e2 e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+
+(rule ((= e (Shl e1 e2)) (VProxy e1) (VProxy e2) (= w (Width e1)))
+    ((solvers-shl e1 e2 e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+
+(rule ((= e (LShr e1 e2)) (VProxy e1) (VProxy e2) (= w (Width e1)))
+    ((solvers-lshr e1 e2 e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+
+(rule ((= e (AShr e1 e2)) (VProxy e1) (VProxy e2) (= w (Width e1)))
+    ((solvers-ashr e1 e2 e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+
+; ### Additional queries
+
+; Linear solver also needs to listen to multiplications by constant
+
+(rule ((= e (Mul e1 (BvConst c w))))
+    ((solvers-mul-constant e1 c e w)) :ruleset snitch)

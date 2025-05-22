@@ -61,7 +61,7 @@
 
 (ruleset width)
 
-; ### Equality intro ruleset
+; ### Equality intro ruleset (`eq`)
 
 ; `eq` ruleset allows to go from `Equal x y = true` to `x = y`. This
 ; effectively allows user to encode any user-defined cycle, so
@@ -77,10 +77,13 @@
 
 (ruleset safe)
 
-; This ruleset includes:
-; * Merge-only rules of any kind (e.g. associativity/commutativity)
-; * Constant folding of any kind with subsumption of the original node
-; * Cancellation rules (e.g. in `a + b = a` we rewrite `b` to 0 and remove `+`)
+; ### Snitch ruleset (`snitch`)
+
+; `snitch` ruleset reports newly discovered equations to rust solvers. Equations are
+; reported in a bottom-up way (simulation core depends on this). Some e-nodes
+; (e.g. commutative variations) are not reported to save some processing time.
+
+(ruleset snitch)
 
 ; ### Explosive ruleset (`explosive`)
 

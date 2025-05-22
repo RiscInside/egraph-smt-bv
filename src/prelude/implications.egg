@@ -8,6 +8,13 @@
 
 (relation ==> (V V))
 
+; ### Visualization of `==>`
+
+; For visualization purposes, we can remove any transitive `==>` pairs. This removes cycles, but it's probably
+; not a huge deal given that fold ruleset should have collapsed them down anyways.
+
+(rule ((==> a b) (==> b c) (==> a c)) ((delete (==> a c))) :ruleset vis)
+
 ; ### Equality from implication
 
 ; As a simple rule, we can equate any two e-classes that imply each other.

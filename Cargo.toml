@@ -11,15 +11,17 @@ harness = false
 anyhow = "1.0.93"
 cap = "0.1.2"
 clap = { version = "4.5.20", features = ["derive"] }
-egglog = { git = "https://github.com/RiscInside/egglog", rev = "c2f67eb8e2edc933c7beed84e98772b76affe61b" }
+egglog = { git = "https://github.com/RiscInside/egglog", rev = "2aec3b2d608d594ddd3a648d6a0d623f6bbfb6da" }
 egraph-serialize = { version = "0.2.0", features = ["graphviz"] }
 expect-test = "1.5.1"
 hashbrown = "0.15.3"
 im-rc = "15.1.0"
 indoc = "2.0.6"
+iset = "0.3.1"
 itertools = "0.13.0"
 lazy_static = "1.5.0"
 num-bigint = "0.4.6"
+petgraph = "0.8.1"
 regex = "1.11.1"
 serde_json = "1.0.140"
 smt2parser = "0.6.1"

@@ -186,9 +186,41 @@ impl Context {
                     vec![res.clone()],
                     lit!(width.get() as i64),
                 )]),
-                body: vec![GenericFact::Eq(span!(), res, call!(name, args))],
+                body: vec![GenericFact::Eq(span!(), res.clone(), call!(name, args))],
             },
         });
+
+        // TODO: we should also support uninterpreted functions here, but for now that's not a huge concern
+        if params.is_empty() {
+            // Add simulation input rule
+            commands.push(Command::Rule {
+                name: format!("{name}-add-input").into(),
+                ruleset: "snitch".into(),
+                rule: Rule {
+                    span: span!(),
+                    head: GenericActions(vec![
+                        Action::Set(
+                            span!(),
+                            "VProxy".into(),
+                            vec![res.clone()],
+                            call!("proxy", [res.clone(), lit!(width.get() as i64)]),
+                        ),
+                        Action::Expr(
+                            span!(),
+                            call!(
+                                "solvers-input",
+                                [
+                                    res.clone(),
+                                    lit!(Symbol::from(name)),
+                                    lit!(width.get() as i64)
+                                ]
+                            ),
+                        ),
+                    ]),
+                    body: vec![GenericFact::Eq(span!(), res.clone(), call!(name, []))],
+                },
+            });
+        }
 
         self.text(&format!("### Declaration of `{name}`"))?;
         self.newline()?;

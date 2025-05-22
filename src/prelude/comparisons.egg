@@ -1,0 +1,8 @@
+; <summary>comparisons.egg - Basic reasoning about value comparisons</summary>
+
+; ### Desugaring GE and GT into LE and LT
+
+(rule ((= e (Sge a b))) ((union e (Sle b a)) (delete (Sge a b))) :ruleset fold)
+(rule ((= e (Sgt a b))) ((union e (Slt b a)) (delete (Sgt a b))) :ruleset fold)
+(rule ((= e (Uge a b))) ((union e (Ule b a)) (delete (Uge a b))) :ruleset fold)
+(rule ((= e (Ugt a b))) ((union e (Ult b a)) (delete (Ugt a b))) :ruleset fold)

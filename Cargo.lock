@@ -340,7 +340,7 @@ checksum = "675e35c02a51bb4d4618cb4885b3839ce6d1787c97b664474d9208d074742e20"
 [[package]]
 name = "egglog"
 version = "0.4.0"
-source = "git+https://github.com/RiscInside/egglog?rev=c2f67eb8e2edc933c7beed84e98772b76affe61b#c2f67eb8e2edc933c7beed84e98772b76affe61b"
+source = "git+https://github.com/RiscInside/egglog?rev=2aec3b2d608d594ddd3a648d6a0d623f6bbfb6da#2aec3b2d608d594ddd3a648d6a0d623f6bbfb6da"
 dependencies = [
  "chrono",
  "clap 4.5.20",
@@ -389,10 +389,12 @@ dependencies = [
  "hashbrown",
  "im-rc",
  "indoc",
+ "iset",
  "itertools 0.13.0",
  "lazy_static",
  "libtest-mimic",
  "num-bigint 0.4.6",
+ "petgraph",
  "regex",
  "serde_json",
  "smt2parser",
@@ -463,6 +465,12 @@ name = "fastrand"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "486f806e73c5707928240ddc295403b1b93c96a02038563881c4a2fd84b81ac4"
+
+[[package]]
+name = "fixedbitset"
+version = "0.5.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d674e81391d1e1ab681a28d99df07927c6d4aa5b027d7da16ba32d1d21ecd99"
 
 [[package]]
 name = "foldhash"
@@ -669,6 +677,12 @@ name = "is_terminal_polyfill"
 version = "1.70.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7943c866cc5cd64cbc25b2e01621d07fa8eb2a1a23160ee81ce38704e97b8ecf"
+
+[[package]]
+name = "iset"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "855de4169757ca6b92b396d7a0380ef234e9a1ec2ec603c80779453ed0ab45e4"
 
 [[package]]
 name = "itertools"
@@ -978,6 +992,18 @@ dependencies = [
  "once_cell",
  "pest",
  "sha2",
+]
+
+[[package]]
+name = "petgraph"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a98c6720655620a521dcc722d0ad66cd8afd5d86e34a89ef691c50b7b24de06"
+dependencies = [
+ "fixedbitset",
+ "hashbrown",
+ "indexmap",
+ "serde",
 ]
 
 [[package]]

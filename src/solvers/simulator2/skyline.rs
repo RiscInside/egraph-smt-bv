@@ -14,7 +14,7 @@ use crate::solvers::{
 /// an offset and height tuple, translating into "from this offset, we have this height until
 /// the next update". Updates are sorted by the offset, which is represented with the Width
 /// type.
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub(in crate::solvers::simulator2) struct Skyline {
     pub(in crate::solvers::simulator2) updates: Vec<(Width, usize)>,
 }

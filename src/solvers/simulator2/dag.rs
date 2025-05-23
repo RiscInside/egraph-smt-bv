@@ -67,21 +67,32 @@ impl std::fmt::Display for Operation {
     }
 }
 
+#[derive(Debug)]
 enum Recipe<V: Variable> {
-    Computed { op: Operation, inputs: Vec<V> },
+    Computed { op: Operation, inputs: Vec<Cell<V>> },
     Slice(Slice),
+    NonComputable,
 }
 
-/// Active (i.e. non-subsumed by parent UF)
+/// Active (i.e. non-subsumed by parent UF) node in the DAG. This roughly corresponds to e-graph e-nodes,
+/// except we only keep cheapest nodes around.
+#[derive(Debug)]
 struct Node<V: Variable> {
-    /// Operation to compute value for the node
+    /// Node's output. For self.mappings[v], this would be equal to a canonical representative of `v`.
+    /// Generally speaking we are fine with using non-canonical nodes - non-incremental pass would make
+    /// sure that we are using a correct node.
+    output: Cell<V>,
+    /// Operation to compute value for the node.
     recipe: Recipe<V>,
-    /// Node's skyline, i.e. distance to all input slices
+    /// Node's skyline, i.e. distance to all input slices. This is used to infer topological ordering
+    /// on nodes and aliasing checks for functional dependency introduction.
     skyline: Skyline,
-    /// All portions of the input this node is in charge of computing
-    input_portions: Vec<Slice>,
-    /// Timestamp of the last recomputation of the skyline
+    /// Timestamp of the last recomputation of the skyline. This field is used to skip repeated
+    /// recanonicalizations, which can be quite expensive.
     last_skyline_canonicalization_ts: Cell<u64>,
+    /// All portins of input this node is in charge of computing. This vector should be empty for
+    /// removed or non-canonical ndoes
+    input_portions: Vec<Slice>,
 }
 
 impl<V: Variable> Node<V> {
@@ -96,36 +107,14 @@ impl<V: Variable> Node<V> {
 
         (self.skyline.updates == vec![(slice.start, 1), (slice.end, 0)]).then_some(slice)
     }
-}
 
-/// Mapping for the node.
-enum NodeOrRedirect<V: Variable> {
-    Active(Node<V>),
-    SubsumedBy(Cell<V>),
-}
-
-impl<V: Variable> NodeOrRedirect<V> {
-    #[track_caller]
-    fn as_active_ref(&self) -> &Node<V> {
-        match self {
-            NodeOrRedirect::Active(node) => node,
-            _ => unreachable!(),
-        }
-    }
-
-    #[track_caller]
-    fn as_active_mut(&mut self) -> &mut Node<V> {
-        match self {
-            NodeOrRedirect::Active(node) => node,
-            _ => unreachable!(),
-        }
-    }
-
-    #[track_caller]
-    fn active(self) -> Node<V> {
-        match self {
-            NodeOrRedirect::Active(node) => node,
-            _ => unreachable!(),
+    fn non_computable(skyline: Skyline, output: V, ts: u64) -> Self {
+        Self {
+            output: output.into(),
+            recipe: Recipe::NonComputable,
+            skyline,
+            last_skyline_canonicalization_ts: ts.into(),
+            input_portions: vec![],
         }
     }
 }
@@ -134,8 +123,8 @@ impl<V: Variable> NodeOrRedirect<V> {
 type ComputableSlices<V> = IntervalMap<Width, V>;
 
 pub(in crate::solvers) struct Dag<V: Variable> {
-    /// For each e-class, we track how it's meant to be computed
-    mappings: HashMap<V, NodeOrRedirect<V>>,
+    /// E-class ID to matching node map.
+    mappings: HashMap<V, Node<V>>,
     /// Slices of input which can be computed
     computable_slices: ComputableSlices<V>,
     /// Timestamp of the last update which can trigger re-canonicalization
@@ -144,6 +133,9 @@ pub(in crate::solvers) struct Dag<V: Variable> {
     input_slices: HashMap<String, Slice>,
     /// Size of the input bitvector. This includes computable input portions
     input_len: Width,
+    /// Alternative nodes, waiting to be processed. Since nodes store output inside them,
+    /// we know what value they are supposed to be computing value for
+    postponed: Vec<Node<V>>,
 }
 
 impl<V: Variable> Default for Dag<V> {
@@ -154,6 +146,7 @@ impl<V: Variable> Default for Dag<V> {
             last_update_ts: 0,
             input_slices: Default::default(),
             input_len: 0,
+            postponed: vec![],
         }
     }
 }
@@ -173,7 +166,7 @@ mod skyline_canon {
             &mut self,
             slice: Slice,
             non_computable: impl FnMut(Slice),
-            computable: impl FnMut(V) -> V,
+            computable: impl FnMut(V),
         );
     }
 
@@ -182,11 +175,11 @@ mod skyline_canon {
             &mut self,
             slice: Slice,
             mut on_non_computable: impl FnMut(Slice),
-            mut on_computable: impl FnMut(V) -> V,
+            mut on_computable: impl FnMut(V),
         ) {
             let mut non_computable_range_start = slice.start;
 
-            for (computable_interval, value) in self.iter_mut(slice.start..slice.end) {
+            for (computable_interval, value) in self.iter(slice.start..slice.end) {
                 if computable_interval.start > non_computable_range_start {
                     on_non_computable(Slice {
                         start: non_computable_range_start,
@@ -194,8 +187,7 @@ mod skyline_canon {
                     })
                 }
                 non_computable_range_start = computable_interval.end;
-                let replacement_value = on_computable(*value);
-                *value = replacement_value;
+                on_computable(*value);
             }
 
             if non_computable_range_start < slice.end {
@@ -226,7 +218,6 @@ mod skyline_canon {
         /// If None is returned, existing skyline can be used as is.
         fn schedule_pre_steps(
             computable_slices: &mut ComputableSlices<V>,
-            mappings: &HashMap<V, NodeOrRedirect<V>>,
             worklist: &mut CanonicalizationWorklist<V>,
             skyline: &Skyline,
         ) -> Option<(SkylineBuilder, HashMap<V, usize>)> {
@@ -241,14 +232,11 @@ mod skyline_canon {
                         skyline_builder.add_slice(non_computable_slice, height);
                     },
                     |computable_dep| {
-                        let computable_dep = Self::find_static(mappings, computable_dep);
                         worklist.pre.push(computable_dep);
 
                         // For computable values, we keep track of the highest possible height difference
                         let entry = next_to_canonicalize.entry(computable_dep).or_default();
                         *entry = std::cmp::max(*entry, height);
-
-                        computable_dep
                     },
                 );
             }
@@ -258,13 +246,12 @@ mod skyline_canon {
 
         fn schedule_pre_and_post_steps(
             computable_slices: &mut ComputableSlices<V>,
-            mappings: &HashMap<V, NodeOrRedirect<V>>,
             worklist: &mut CanonicalizationWorklist<V>,
             skyline: &Skyline,
             value: V,
         ) {
             if let Some((skyline_builder, computable_deps)) =
-                Self::schedule_pre_steps(computable_slices, mappings, worklist, skyline)
+                Self::schedule_pre_steps(computable_slices, worklist, skyline)
             {
                 worklist
                     .post
@@ -274,12 +261,12 @@ mod skyline_canon {
 
         /// Reassemble skyline after pre-pass
         fn run_post_step(
-            mappings: &HashMap<V, NodeOrRedirect<V>>,
+            mappings: &HashMap<V, Node<V>>,
             mut skyline_builder: SkylineBuilder,
             computable_deps: HashMap<V, usize>,
         ) -> Skyline {
             for (computed_value, height_delta) in computable_deps {
-                let computed_node = mappings[&computed_value].as_active_ref();
+                let computed_node = &mappings[&computed_value];
 
                 for (computed_node_dep_slice, computed_node_dep_height) in
                     computed_node.skyline.non_zero_height_slices_iter()
@@ -297,7 +284,7 @@ mod skyline_canon {
         /// Empty canonicalization worklists by running pre/post until both worklists are exhausted
         fn canonicalization_fixpoint(&mut self, worklist: &mut CanonicalizationWorklist<V>) {
             while let Some(v) = worklist.pre.pop() {
-                let node = self.mappings[&v].as_active_ref();
+                let node = &self.mappings[&v];
                 if node.last_skyline_canonicalization_ts.get() == self.last_update_ts {
                     continue;
                 }
@@ -306,26 +293,23 @@ mod skyline_canon {
                 node.last_skyline_canonicalization_ts
                     .set(self.last_update_ts);
 
-                if let Some((skyline_builder, computable_deps)) = Self::schedule_pre_steps(
-                    &mut self.computable_slices,
-                    &self.mappings,
-                    worklist,
-                    &node.skyline,
-                ) {
+                if let Some((skyline_builder, computable_deps)) =
+                    Self::schedule_pre_steps(&mut self.computable_slices, worklist, &node.skyline)
+                {
                     worklist.post.push((skyline_builder, computable_deps, v));
                 }
             }
 
             while let Some((skyline_builder, computable_deps, v)) = worklist.post.pop() {
                 let skyline = Self::run_post_step(&self.mappings, skyline_builder, computable_deps);
-                self.mappings.get_mut(&v).unwrap().as_active_mut().skyline = skyline;
+                self.mappings.get_mut(&v).unwrap().skyline = skyline;
             }
         }
 
         /// Ensures that skyline for `v` is canonical. Returns a canonical ID of the e-class passed in
         pub(super) fn canonicalize_skyline_for(&mut self, v: V) -> V {
             let v = Self::find_static(&self.mappings, v);
-            let node = self.mappings[&v].as_active_ref();
+            let node = &self.mappings[&v];
             // Check if skyline for the value has already been canonicalized
             if node.last_skyline_canonicalization_ts.get() == self.last_update_ts {
                 return v;
@@ -334,7 +318,6 @@ mod skyline_canon {
             let mut worklist = Default::default();
             Self::schedule_pre_and_post_steps(
                 &mut self.computable_slices,
-                &self.mappings,
                 &mut worklist,
                 &node.skyline,
                 v,
@@ -347,12 +330,9 @@ mod skyline_canon {
         /// Canonicalize skyline that isn't associated with any value
         pub(super) fn canonicalize_skyline(&mut self, skyline: Skyline) -> Skyline {
             let mut worklist = Default::default();
-            let Some((skyline_builder, computable_deps)) = Self::schedule_pre_steps(
-                &mut self.computable_slices,
-                &self.mappings,
-                &mut worklist,
-                &skyline,
-            ) else {
+            let Some((skyline_builder, computable_deps)) =
+                Self::schedule_pre_steps(&mut self.computable_slices, &mut worklist, &skyline)
+            else {
                 return skyline;
             };
             self.canonicalization_fixpoint(&mut worklist);
@@ -363,15 +343,21 @@ mod skyline_canon {
 }
 
 impl<V: Variable> Dag<V> {
-    fn find_static(mappings: &HashMap<V, NodeOrRedirect<V>>, mut variable: V) -> V {
+    fn find_static(mappings: &HashMap<V, Node<V>>, mut variable: V) -> V {
         let mut result = variable;
-        while let Some(NodeOrRedirect::SubsumedBy(cell)) = mappings.get(&result) {
-            result = cell.get();
+        while let Some(Node { output, .. }) = mappings.get(&result) {
+            if output.get() == result {
+                break;
+            }
+            result = output.get();
         }
 
-        while let Some(NodeOrRedirect::SubsumedBy(cell)) = mappings.get(&variable) {
-            variable = cell.get();
-            cell.set(result);
+        while let Some(Node { output, .. }) = mappings.get(&variable) {
+            if output.get() == result {
+                break;
+            }
+            variable = output.get();
+            output.set(result);
         }
 
         result
@@ -381,13 +367,14 @@ impl<V: Variable> Dag<V> {
         Self::find_static(&self.mappings, variable)
     }
 
-    // Merge two DAG nodes together (assuming canonicalized skylines). The output is needed in case one of the nodes is a canonical input, in which case we would like to introduce a functional dependency.
+    // Attempt to merge two DAG nodes together (assuming canonicalized skylines). Two DAG nodes are merged if we know for sure that no
+    // extra input functional dependency will affect evaluation ordering between them.
+    #[allow(clippy::result_large_err)]
     fn merge_nodes(
         &mut self,
         mut old_node: Node<V>,
         mut new_node: Node<V>,
-        output_eclass: V,
-    ) -> Node<V> {
+    ) -> Result<Node<V>, (Node<V>, Node<V>)> {
         let (old_higher_up, new_higher_up) = old_node.skyline.compare(&new_node.skyline);
         let mut input_portions = std::mem::take(&mut old_node.input_portions);
         input_portions.append(&mut new_node.input_portions);
@@ -395,128 +382,170 @@ impl<V: Variable> Dag<V> {
         let pick_old_as_active = match (old_higher_up, new_higher_up) {
             (true, false) => false, // old is higher than new, pick new as the replacement,
             (false, true) => true,  // new is higher than old, pick old as the replacement,
-            (false, false) => true, // heights match for all slices, it doesn't matter which one we pick
+            (false, false) => true, // heights match for all slices, it doesn't matter which one we pick - both nodes can be evaluated in any order
             (true, true) => {
-                // if there is no overlap at all, one might be a canonical slice, in which case we want to pick another
-
-                let (pick_old, canonical_slice) =
-                    if let Some(canonical_slice) = new_node.canonical_slice() {
-                        (true, Some(canonical_slice))
-                    } else if let Some(canonical_slice) = old_node.canonical_slice() {
-                        (false, Some(canonical_slice))
-                    } else {
-                        (false, None)
-                    };
-
-                if let Some(slice) = canonical_slice {
-                    self.computable_slices
-                        .insert(slice.start..slice.end, output_eclass);
-                    input_portions.push(slice);
+                // if both nodes have segments they are higher on, we don't know which one will be evaluated first in the future - this would
+                // depend on new input fdeps introduced in the future.
+                //
+                // However, if one of the nodes is a canonical input slice, we can introduce a new fdep, so that's nice
+                if let Some((canonical_slice, pick_old)) = new_node
+                    .canonical_slice()
+                    .map(|slice| (slice, true))
+                    .or_else(|| old_node.canonical_slice().map(|slice| (slice, false)))
+                {
+                    self.computable_slices.insert(
+                        canonical_slice.start..canonical_slice.end,
+                        old_node.output.get(),
+                    );
+                    input_portions.push(canonical_slice);
                     self.last_update_ts += 1;
-                }
+                    pick_old
+                } else {
+                    // We can't introduce a new fdep here, so just accept the fact that two nodes can't be merged and defer to non-incremental pass.
+                    // For now, decide arbitrarily that new node will be the representative for output and old_node will go into postponed list
 
-                pick_old
+                    new_node.input_portions = input_portions;
+                    return Err((old_node, new_node));
+                }
             }
         };
 
-        Node {
+        let (active_node, _) = if pick_old_as_active {
+            (old_node, new_node)
+        } else {
+            (new_node, old_node)
+        };
+
+        Ok(Node {
             input_portions,
-            ..if pick_old_as_active {
-                old_node
-            } else {
-                new_node
-            }
-        }
+            ..active_node
+        })
     }
 
     // Union two e-classes
     pub(in crate::solvers::simulator2) fn union(&mut self, old: V, new: V) {
         let old = self.canonicalize_skyline_for(old);
 
-        let old_node = self.mappings.remove(&old).unwrap().active();
+        let old_node = self.mappings.remove(&old).unwrap();
+        old_node.output.set(new);
 
         // Uhh, I couldn't figure out how to do this with entry() or even remove(). The tricky
         // bit is that we have to recanonicalize right in the middle.
         let new_node = if self.mappings.contains_key(&new) {
             self.canonicalize_skyline_for(new);
-            self.mappings
-                .remove(&new)
-                .map(NodeOrRedirect::active)
-                .unwrap()
+            self.mappings.remove(&new).unwrap()
         } else {
-            self.mappings.insert(new, NodeOrRedirect::Active(old_node));
+            let skyline = old_node.skyline.clone();
+            self.mappings.insert(new, old_node);
+            // We need to keep some node for `old` as a reference point for skyline computations.
             self.mappings
-                .insert(old, NodeOrRedirect::SubsumedBy(new.into()));
+                .insert(old, Node::non_computable(skyline, new, self.last_update_ts));
             return;
         };
 
-        let active_node = self.merge_nodes(old_node, new_node, new);
-
-        self.mappings
-            .insert(old, NodeOrRedirect::SubsumedBy(new.into()));
-        self.mappings
-            .insert(new, NodeOrRedirect::Active(active_node));
+        match self.merge_nodes(old_node, new_node) {
+            Ok(result) => {
+                self.mappings.insert(
+                    old,
+                    Node::non_computable(result.skyline.clone(), new, self.last_update_ts),
+                );
+                self.mappings.insert(new, result);
+            }
+            Err((old_node, new_node)) => {
+                self.mappings.insert(old, old_node);
+                self.mappings.insert(new, new_node);
+            }
+        };
     }
 
     // Add a new node for the e-class
-    fn add_node(&mut self, new_node: Node<V>, output: V) {
+    fn add_node(&mut self, new_node: Node<V>) {
+        let output = new_node.output.get();
         if !self.mappings.contains_key(&output) {
-            self.mappings
-                .insert(output, NodeOrRedirect::Active(new_node));
+            self.mappings.insert(output, new_node);
             return;
         }
 
         let output = self.canonicalize_skyline_for(output);
+        new_node.output.set(output);
+
         let node_to_insert = if let Some(output_node) = self.mappings.remove(&output) {
-            let output_node = output_node.active();
-            self.merge_nodes(output_node, new_node, output)
+            match self.merge_nodes(output_node, new_node) {
+                Ok(result) => result,
+                Err((mut old_node, mut new_node)) => {
+                    old_node.input_portions.append(&mut new_node.input_portions);
+                    self.postponed.push(new_node);
+                    old_node
+                }
+            }
         } else {
             new_node
         };
 
-        self.mappings
-            .insert(output, NodeOrRedirect::Active(node_to_insert));
+        self.mappings.insert(output, node_to_insert);
     }
 
-    // Add a new equation for the e-class
+    /// Compute canonical skyline for the equation. Skyline gives us a rough cost model for the equation.
+    /// TODO: a proper cost model, now that we can accomodate them.
+    fn compute_equation_skyline(
+        mappings: &HashMap<V, Node<V>>,
+        _op: Operation,
+        inputs: &[Cell<V>],
+    ) -> Skyline {
+        let mut skyline_builder = SkylineBuilder::default();
+        for input in inputs.iter() {
+            skyline_builder.add_skyline(&mappings[&input.get()].skyline, 1);
+        }
+        skyline_builder.build()
+    }
+
+    /// Convert node's inputs and outputs to canonical e-class IDs
+    fn canonicalize_node(&self, node: &Node<V>) {
+        node.output.set(self.find(node.output.get()));
+        if let Recipe::Computed { inputs, .. } = &node.recipe {
+            for input in inputs.iter() {
+                input.set(self.find(input.get()));
+            }
+        }
+    }
+
+    /// Add a new equation for the e-class
     pub(in crate::solvers::simulator2) fn add_equation(
         &mut self,
         op: Operation,
-        mut inputs: Vec<V>,
+        inputs: Vec<V>,
         output: V,
     ) {
-        // Compute a skyline for the new expression
-        let mut skyline_builder = SkylineBuilder::default();
-        for input in inputs.iter_mut() {
-            *input = self.canonicalize_skyline_for(*input);
-            let input = self.mappings[input].as_active_ref();
-            skyline_builder.add_skyline(&input.skyline, 1);
+        // SAFETY: Cell<V> and V have the same representation
+        let inputs: Vec<Cell<V>> = unsafe { std::mem::transmute(inputs) };
+
+        for input in inputs.iter() {
+            input.set(self.canonicalize_skyline_for(input.get()));
         }
-        let skyline = skyline_builder.build();
+        let skyline = Self::compute_equation_skyline(&self.mappings, op, &inputs);
 
         let new_node = Node {
-            recipe: Recipe::Computed { op, inputs },
+            output: output.into(),
             skyline,
+            recipe: Recipe::Computed { op, inputs },
             input_portions: vec![],
             last_skyline_canonicalization_ts: self.last_update_ts.into(),
         };
 
-        self.add_node(new_node, output);
+        self.add_node(new_node);
     }
 
     /// Add input slice mapping
     fn add_input_slice(&mut self, output: V, slice: Slice) {
         let skyline = self.canonicalize_skyline(slice.into());
 
-        self.add_node(
-            Node {
-                recipe: Recipe::Slice(slice),
-                skyline,
-                input_portions: vec![],
-                last_skyline_canonicalization_ts: self.last_update_ts.into(),
-            },
-            output,
-        );
+        self.add_node(Node {
+            output: output.into(),
+            recipe: Recipe::Slice(slice),
+            skyline,
+            input_portions: vec![],
+            last_skyline_canonicalization_ts: self.last_update_ts.into(),
+        });
     }
 
     /// Add an extract node. This behaves differently on slices
@@ -527,7 +556,7 @@ impl<V: Variable> Dag<V> {
         output: V,
     ) {
         let input = self.find(input);
-        let input_node = self.mappings[&input].as_active_ref();
+        let input_node = &self.mappings[&input];
 
         if let Recipe::Slice(input_slice) = input_node.recipe {
             let subslice = input_slice.subslice(slice);
@@ -554,86 +583,92 @@ impl<V: Variable> Dag<V> {
                 self.input_len = new_input_len;
                 vacant_entry.insert(slice);
 
-                self.add_node(
-                    Node {
-                        recipe: Recipe::Slice(slice),
-                        skyline: slice.into(),
-                        input_portions: vec![],
-                        last_skyline_canonicalization_ts: self.last_update_ts.into(),
-                    },
-                    input,
-                );
+                self.add_node(Node {
+                    output: input.into(),
+                    recipe: Recipe::Slice(slice),
+                    skyline: slice.into(),
+                    input_portions: vec![],
+                    last_skyline_canonicalization_ts: self.last_update_ts.into(),
+                });
             }
         }
     }
 
-    /// Build a topological order for the DAG and canonicalize all nodes in the process.
-    /// This only returns canonical elements and makes sure to purge all non-canonical
-    /// elements from the map.
-    pub(in crate::solvers::simulator2) fn build_topo_order(&mut self) -> Vec<V> {
+    /// Rebuild a DAG and return a new evaluation order.
+    ///
+    /// NOTE: this currently doesn't guarantee lowest cost extraction.
+    pub(in crate::solvers::simulator2) fn rebuild(&mut self) -> Vec<V> {
         let all_eclasses: Vec<V> = self.mappings.keys().cloned().collect();
-        let mut eclasses_with_heights = vec![];
 
-        for eclass in all_eclasses.iter() {
-            let eclass = self.canonicalize_skyline_for(*eclass);
-            let node = self.mappings.get_mut(&eclass).unwrap().as_active_mut();
-            let max_height = node.skyline.max_height();
-
-            let mut recipe = std::mem::replace(
-                &mut node.recipe,
-                Recipe::Computed {
-                    op: Operation::Add,
-                    inputs: vec![],
-                },
-            );
-
-            match &mut recipe {
-                Recipe::Computed { inputs, .. } => {
-                    for input in inputs.iter_mut() {
-                        *input = self.find(*input);
-                    }
-                }
-                Recipe::Slice(_) => {}
-            }
-
-            self.mappings
-                .get_mut(&eclass)
-                .unwrap()
-                .as_active_mut()
-                .recipe = recipe;
-
-            eclasses_with_heights.push((max_height, eclass));
-        }
-
-        for (_, value) in self.computable_slices.iter_mut(0..) {
-            *value = Self::find_static(&self.mappings, *value);
-        }
-
-        // Remove all non-canonical classes from the mapping
+        // Start by canonicalizing all skylines for all nodes in the DAG
         for eclass in all_eclasses {
-            match self.mappings.entry(eclass) {
-                Entry::Occupied(occupied_entry) => {
-                    if let NodeOrRedirect::SubsumedBy(_) = occupied_entry.get() {
-                        occupied_entry.remove();
+            self.canonicalize_skyline_for(eclass);
+            self.canonicalize_node(&self.mappings[&eclass]);
+        }
+
+        let mut canonical_nodes = vec![];
+        // Canonicalize all post-poned nodes as well
+        for mut node in std::mem::take(&mut self.postponed) {
+            node.skyline = self.canonicalize_skyline(node.skyline);
+            self.canonicalize_node(&node);
+        }
+
+        // Canonicalize all entries in computable_intervals map
+        for (_, output) in self.computable_slices.iter_mut(0..) {
+            *output = Self::find_static(&self.mappings, *output);
+        }
+
+        // Finally, remove all DAG entries. We will rebuilt DAG from ground up based on heights
+        for (_, node) in self.mappings.drain() {
+            canonical_nodes.push(node);
+        }
+
+        // Filter non-computable nodes
+        canonical_nodes.retain(|node| !matches!(node.recipe, Recipe::NonComputable));
+
+        // Reinsert nodes while recomputing their costs
+        canonical_nodes.sort_by_cached_key(|node| (node.skyline.max_height(), node.output.get()));
+
+        let mut ordering = vec![];
+        for mut node in canonical_nodes {
+            // Recompute node's skyline
+            node.skyline = match &node.recipe {
+                Recipe::Computed { op, inputs } => {
+                    Self::compute_equation_skyline(&self.mappings, *op, inputs)
+                }
+                &Recipe::Slice(slice) => self.canonicalize_skyline(slice.into()),
+                Recipe::NonComputable => {
+                    // Non-computable nodes have an alternative lowering
+                    continue;
+                }
+            };
+
+            match self.mappings.entry(node.output.get()) {
+                Entry::Occupied(mut occupied_entry) => {
+                    // Pick the node with the lowest cost
+                    let current_node = occupied_entry.get_mut();
+                    let node_is_better =
+                        node.skyline.max_height() < current_node.skyline.max_height();
+                    if node_is_better {
+                        occupied_entry.insert(node);
                     }
                 }
-                Entry::Vacant(_) => {}
+                Entry::Vacant(vacant_entry) => {
+                    // First time node.output is being computed, push to the topological ordering
+                    ordering.push(node.output.get());
+                    vacant_entry.insert(node);
+                }
             }
         }
 
-        eclasses_with_heights
-            .iter()
-            .sorted()
-            .map(|(_, value)| *value)
-            .dedup()
-            .collect()
+        ordering
     }
 
     /// Build a summary of the DAG in text format. Used for expect tests
     pub(in crate::solvers::simulator2) fn summary(&mut self) -> String {
         let mut result = String::new();
-        for value in self.build_topo_order() {
-            let node = self.mappings[&value].as_active_ref();
+        for value in self.rebuild() {
+            let node = &self.mappings[&value];
 
             for input_portion in node.input_portions.iter() {
                 write!(
@@ -653,15 +688,16 @@ impl<V: Variable> Dag<V> {
                         "{op}({}) ",
                         inputs
                             .iter()
-                            .map(|input| self.find(*input).show())
+                            .map(|input| self.find(input.get()).show())
                             .join(", ")
                     )
-                    .unwrap();
                 }
                 Recipe::Slice(slice) => {
-                    write!(&mut result, "input[{}..{}] ", slice.start, slice.end).unwrap();
+                    write!(&mut result, "input[{}..{}] ", slice.start, slice.end)
                 }
+                Recipe::NonComputable => write!(&mut result, "noncomputable"),
             }
+            .unwrap();
 
             writeln!(
                 &mut result,
@@ -701,7 +737,7 @@ mod test {
     }
 
     #[test]
-    fn test_input_slice_fdewp() {
+    fn test_input_slice_fdep() {
         let mut dag: Dag<u64> = Dag::default();
 
         dag.declare_input(1, 64, "state".into());
@@ -750,9 +786,9 @@ mod test {
         dag.union(1, 2);
         dag.expect(expect![[r#"
             input[512..1024] = v2 = input[0..512] (skyline: [(0..512, 1)])
-            v3 = and(v2, v2) (skyline: [(0..512, 3)])
-            v4 = or(v2, v2) (skyline: [(0..512, 3)])
-            v5 = add(v2, v2) (skyline: [(0..512, 3)])
+            v3 = and(v2, v2) (skyline: [(0..512, 2)])
+            v4 = or(v2, v2) (skyline: [(0..512, 2)])
+            v5 = add(v2, v2) (skyline: [(0..512, 2)])
             input[512..1024] is computed by v2
         "#]]);
     }
@@ -898,10 +934,10 @@ mod test {
         dag.expect(expect![[r#"
             v6 = input[16..32] (skyline: [(16..32, 1)])
             input[32..48] = v4 = not(v6) (skyline: [(16..32, 2)])
-            v5 = not(v4) (skyline: [(16..32, 4)])
-            input[0..16] = v3 = neg(v5) (skyline: [(16..32, 5)])
-            v1 = input[0..64] (skyline: [(16..32, 6), (48..64, 1)])
-            v2 = input[0..32] (skyline: [(16..32, 6)])
+            v5 = not(v4) (skyline: [(16..32, 3)])
+            input[0..16] = v3 = neg(v5) (skyline: [(16..32, 4)])
+            v1 = input[0..64] (skyline: [(16..32, 5), (48..64, 1)])
+            v2 = input[0..32] (skyline: [(16..32, 5)])
             input[0..16] is computed by v3
             input[32..48] is computed by v4
         "#]]);

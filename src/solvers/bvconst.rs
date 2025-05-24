@@ -133,7 +133,7 @@ impl Sort for BvConstSort {
 
         add_primitives!(
             info,
-            "bit-at" = |w: i64| -> C { BvConst(BigUint::from(1u32) << w) }  
+            "bit-at" = |w: i64| -> C { BvConst(BigUint::from(1u32) << w) }
         );
     }
 

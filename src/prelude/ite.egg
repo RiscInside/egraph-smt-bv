@@ -26,6 +26,10 @@
 
 (rewrite (ITE c t o) (ITE c (Assume c t) (Assume (Not c) o)) :ruleset slow)
 
+; #### Assume nodes collapse
+
+(rewrite (Assume c (Assume c v)) (Assume c v) :ruleset fold)
+
 ; #### Pushing assume nodes inside operators
 
 (rewrite (Assume c (Not e)) (Not (Assume c e)) :ruleset slow)

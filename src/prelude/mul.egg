@@ -26,7 +26,8 @@
 (birewrite (Mul a (Mul b c)) (Mul (Mul a b) c) :ruleset explosive)
 
 ; ### Distributivity
-(birewrite (Mul a (Add b c)) (Add (Mul a b) (Mul a c)) :ruleset explosive)
+(rewrite (Mul a (Add b c)) (Add (Mul a b) (Mul a c)) :ruleset explosive)
+(rewrite (Add (Mul a b) (Mul a c)) (Mul a (Add b c)) :ruleset slow)
 
 ; ### Pushing negations upwards
 (rewrite (Mul (Neg a) b) (Neg (Mul a b)) :ruleset explosive)
@@ -35,3 +36,9 @@
 
 ; ### Shift-like Concat into Mul
 (rewrite (Concat (Extract (- w (+ shift 1)) 0 a) (BvAll false shift)) (Mul a (BvConst (i64-shl __1 shift w) w)) :when ((= w (Width a))) :ruleset slow)
+
+; ### Converting if-then-else into 1 bit multiplication
+
+; This idiom is often used for lowering multiplication bit by bit.
+
+(rewrite (ITE (Extract i i e) e1 (BvAll false w)) (Mul e1 (ZeroExtend (- w 1) (Extract i i e))) :when ((> w 1)) :ruleset slow)

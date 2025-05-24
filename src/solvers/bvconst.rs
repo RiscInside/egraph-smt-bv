@@ -52,6 +52,8 @@ impl Sort for BvConstSort {
     fn register_primitives(self: std::sync::Arc<Self>, info: &mut egglog::TypeInfo) {
         type Opt<T = ()> = Option<T>;
 
+        // These are overly specific on purpose - it's often easier to just add a new primitive here
+        // than to reimplement logic everytime in egglog.
         add_primitives!(
             info,
             "bvconst-from-string" = |a: Symbol| -> Opt<C> { a.as_str().parse().map(BvConst).ok() }
@@ -127,6 +129,11 @@ impl Sort for BvConstSort {
                     (b_sign_bit + a_unsign) > (a_sign_bit + b_unsign)
                 }
             }
+        );
+
+        add_primitives!(
+            info,
+            "bit-at" = |w: i64| -> C { BvConst(BigUint::from(1u32) << w) }  
         );
     }
 

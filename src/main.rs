@@ -2,6 +2,11 @@ use anyhow::bail;
 use clap::Parser;
 use egraph_smt_bv::Context;
 
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 #[derive(Parser)]
 struct Args {
     input: std::path::PathBuf,

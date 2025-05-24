@@ -29,7 +29,13 @@
 
 ; ### Transitivity
 
-(rule ((==> a b) (==> b c)) ((==> a c)) :ruleset safe)
+; While technically safe, we put this rule in "slow" ruleset - the complexity of
+; computing full transitive closure is cubic, so we would rather not.
+;
+; Note that it only takes O(log N) runs of this rule to connect N distant points
+; together, so 15 runs of this rule allows us to see roughly 30000 implications away
+
+(rule ((==> a b) (==> b c)) ((==> a c)) :ruleset slow)
 
 ; ### Contra-positive implication
 

@@ -13,57 +13,29 @@
 
 (rewrite (ITE cond tt ff) cond :subsume :ruleset fold)
 
-; #### Assume nodes
+; ### Pushdown rules for operators
 
-; `(Assume a b)` is equal to any other expression if `a` is false and only equal to `b` if `a` is true.
-; This is a non-trivial addition to our equivalence relation, but is sound nevertheless.
+(rewrite (ITE cond (Not e1) (Not e2)) (Not (ITE cond e1 e2)) :ruleset slow)
 
-(constructor Assume (V V) V)
+(rewrite (ITE cond (And e1 e2) (And e3 e4))
+         (And (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset slow)
 
-(rule ((= e (Assume c e1)) (= w (Width e1))) ((set (Width e) w)) :ruleset width)
+(rewrite (ITE cond (Add e1 e2) (Add e3 e4))
+         (Add (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset slow)
 
-; #### Introduction of Assume nodes from if-then-else equations
+(rewrite (ITE cond (Mul e1 e2) (Mul e3 e4))
+         (Mul (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset slow)
 
-(rewrite (ITE c t o) (ITE c (Assume c t) (Assume (Not c) o)) :ruleset slow)
+(rewrite (ITE cond (Concat e1 e2) (Concat e3 e4))
+         (Concat (ITE cond e1 e3) (ITE cond e2 e4))
+         :when ((= (Width e1) (Width e3))) :ruleset slow)
 
-; #### Assume nodes collapse
+; #### Nested if-then-else
 
-(rewrite (Assume c (Assume c v)) (Assume c v) :ruleset fold)
+(rewrite (ITE cond (ITE cond x y) z) (ITE cond x z) :subsume :ruleset fold)
+(rewrite (ITE cond x (ITE cond y z)) (ITE cond x y) :subsume :ruleset fold)
 
-; #### Pushing assume nodes inside operators
+; #### More general version
 
-(rewrite (Assume c (Not e)) (Not (Assume c e)) :ruleset slow)
-(rewrite (Assume c (Implies e1 e2)) (Implies (Assume c e1) (Assume c e2)) :ruleset slow)
-(rewrite (Assume c (And e1 e2)) (And (Assume c e1) (Assume c e2)) :ruleset slow)
-(rewrite (Assume c (Or e1 e2)) (Or (Assume c e1) (Assume c e2)) :ruleset slow)
-(rewrite (Assume c (Xor e1 e2)) (Xor (Assume c e1) (Assume c e2)) :ruleset slow)
-(rewrite (Assume c (ITE e1 e2 e3)) (ITE (Assume c e1) (Assume c e2) (Assume c e3)) :ruleset slow)
-(rewrite (Assume c (Concat e1 e2)) (Concat (Assume c e1) (Assume c e2)) :ruleset slow)
-(rewrite (Assume c (Extract i j e)) (Extract i j (Assume c e)) :ruleset slow)
-(rewrite (Assume c (SignExtend w e)) (SignExtend w (Assume c e)) :ruleset slow)
-(rewrite (Assume c (Add e1 e2)) (Add (Assume c e1) (Assume c e2)) :ruleset slow)
-(rewrite (Assume c (Mul e1 e2)) (Mul (Assume c e1) (Assume c e2)) :ruleset slow)
-(rewrite (Assume c (UDiv e1 e2)) (UDiv (Assume c e1) (Assume c e2)) :ruleset slow)
-(rewrite (Assume c (URem e1 e2)) (URem (Assume c e1) (Assume c e2)) :ruleset slow)
-(rewrite (Assume c (SDiv e1 e2)) (SDiv (Assume c e1) (Assume c e2)) :ruleset slow)
-(rewrite (Assume c (SRem e1 e2)) (SRem (Assume c e1) (Assume c e2)) :ruleset slow)
-(rewrite (Assume c (Shl e1 e2)) (Shl (Assume c e1) (Assume c e2)) :ruleset slow)
-(rewrite (Assume c (LShr e1 e2)) (LShr (Assume c e1) (Assume c e2)) :ruleset slow)
-(rewrite (Assume c (AShr e1 e2)) (AShr (Assume c e1) (Assume c e2)) :ruleset slow)
-(rewrite (Assume c1 (Assume c2 e)) (Assume (And c1 c2) e) :ruleset slow)
-
-; #### Discovering equalities from Assume nodes
-
-(rule ((= (Assume c x) (Assume c y))) ((union x (Assume c y)) (union y (Assume c x))) :ruleset fold)
-
-; #### Replacing boolean values
-
-(rewrite (Assume c c) (Assume c tt) :ruleset fold)
-(rewrite (Assume c (Not c)) (Assume c ff) :ruleset fold)
-(rewrite (Assume cond c) (Assume cond tt) :when ((==> cond c)) :ruleset safe)
-(rewrite (Assume cond c) (Assume cond ff) :when ((==> cond (Not c))) :ruleset safe)
-
-; #### Making use of equality assertions
-
-(rewrite (Assume (Equal x y) x) (Assume (Equal x y) y) :ruleset safe)
-(rewrite (Assume cond x) (Assume cond y) :when ((==> cond (Equal x y))) :ruleset safe)
+(rewrite (ITE a (ITE b x y) x) (ITE (Or a b) x y) :ruleset slow)
+(rewrite (ITE a x (ITE b x y)) (ITE (Or a b) x y) :ruleset slow)

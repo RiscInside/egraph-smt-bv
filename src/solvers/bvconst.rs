@@ -36,7 +36,7 @@ impl BvConst {
 
 type C = BvConst;
 
-pub(crate) type BvConstTable = IndexSet<BvConst>;
+pub(crate) type BvConstTable = IndexSet<BigUint>;
 
 impl Sort for BvConstSort {
     fn name(&self) -> egglog::ast::Symbol {
@@ -160,13 +160,15 @@ impl FromSort for BvConst {
 
     fn load(sort: &Self::Sort, value: &Value) -> Self {
         let i = value.bits as usize;
-        sort.solvers
-            .lock()
-            .unwrap()
-            .bv_constants_index
-            .get_index(i)
-            .unwrap()
-            .clone()
+        BvConst(
+            sort.solvers
+                .lock()
+                .unwrap()
+                .bv_constants_index
+                .get_index(i)
+                .unwrap()
+                .clone(),
+        )
     }
 }
 
@@ -179,7 +181,7 @@ impl IntoSort for BvConst {
             .lock()
             .unwrap()
             .bv_constants_index
-            .insert_full(self);
+            .insert_full(self.0);
         Some(Value {
             #[cfg(debug_assertions)]
             tag: sort.name(),

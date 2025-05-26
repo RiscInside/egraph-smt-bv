@@ -25,6 +25,10 @@ pub(crate) enum Tactic {
     RunRuleset(Symbol),
     /// Run linear solver
     RunLinSolve,
+    /// Run satelite SMT solver
+    RunSMTSolveOne,
+    /// Mine hypothesis using simulation
+    MineHypothesis,
     /// Dump execution DAG to file
     DumpDag(PathBuf),
     /// Dump the current e-graph to a json file
@@ -69,32 +73,38 @@ impl Plan {
         // Run the `once` ruleset with very explosive rules
         let run_once = Plan::Leaf(Tactic::RunRuleset(Symbol::from("once")));
 
-        // Build the main reasoning block based on repetition.
-        let repeat_block = Plan::Seq(vec![
+        // This block always terminates
+        let safe_block = Plan::Saturate(vec![
+            Plan::Saturate(vec![
+                Plan::Saturate(vec![
+                    Plan::Saturate(vec![
+                        Plan::Leaf(Tactic::RunRuleset("width".into())),
+                        Plan::Leaf(Tactic::RunRuleset("snitch".into())),
+                    ]),
+                    Plan::Leaf(Tactic::RunRuleset(Symbol::from("eq"))),
+                    Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold"))),
+                ]),
+                Plan::Leaf(Tactic::RunRuleset(Symbol::from("safe"))),
+            ]),
+            Plan::Leaf(Tactic::RunLinSolve),
+        ]);
+
+        let unsafe_block = Plan::Seq(vec![
+            Plan::Leaf(Tactic::MineHypothesis),
+            Plan::Leaf(Tactic::RunSMTSolveOne),
             Plan::Repeat(
                 vec![
-                    Plan::Saturate(vec![
-                        Plan::Saturate(vec![
-                            Plan::Saturate(vec![
-                                Plan::Saturate(vec![
-                                    Plan::Leaf(Tactic::RunRuleset("width".into())),
-                                    Plan::Leaf(Tactic::RunRuleset("snitch".into())),
-                                ]),
-                                Plan::Leaf(Tactic::RunRuleset(Symbol::from("eq"))),
-                                Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold"))),
-                            ]),
-                            Plan::Leaf(Tactic::RunRuleset(Symbol::from("safe"))),
-                        ]),
-                        Plan::Leaf(Tactic::RunLinSolve),
-                    ]),
                     Plan::Leaf(Tactic::RunRuleset(Symbol::from("slow"))),
+                    safe_block.clone(),
                 ],
                 3,
             ),
             Plan::Leaf(Tactic::RunRuleset(Symbol::from("explosive"))),
+            safe_block.clone(),
         ]);
-        // Repeat it 5 times
-        let repeat_block = Plan::Repeat(vec![repeat_block], 5);
+
+        let repeat_block = Plan::Repeat(vec![unsafe_block], 5);
+
         // Optionally wrap the repeat block in a timeout
         let repeat_block = if let Some(timeout) = timeout {
             Plan::Timeout(vec![repeat_block], timeout)
@@ -120,6 +130,8 @@ impl Plan {
                     return Ok(Plan::Leaf(Tactic::RunRuleset(ruleset.into())));
                 }
                 "linsolve" => return Ok(Plan::Leaf(Tactic::RunLinSolve)),
+                "smt-one" => return Ok(Plan::Leaf(Tactic::RunSMTSolveOne)),
+                "simulate" => return Ok(Plan::Leaf(Tactic::MineHypothesis)),
                 _ => bail!("Unknown tactic: `{}`", symbol.0),
             },
             SExpr::Constant(Constant::String(name)) => {
@@ -284,6 +296,8 @@ impl Context {
                 Ok(updated)
             }
             Tactic::RunLinSolve => self.linsolve_tactic(),
+            Tactic::RunSMTSolveOne => self.smt_solve_one_tactic(),
+            Tactic::MineHypothesis => self.mine_hypotheses_tactic(),
             Tactic::DumpJson(path) => {
                 self.dump_json(path)?;
                 Ok(false)

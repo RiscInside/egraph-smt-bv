@@ -12,7 +12,7 @@ use crate::{
     },
     plan::Plan,
     smt2lib,
-    solvers::{create_solvers, Solvers},
+    solvers::Solvers,
     status::SATStatus,
 };
 use anyhow::{bail, Context as _};
@@ -86,7 +86,7 @@ impl Context {
             .run_program(vec![GenericCommand::Sort(span!(), "V".into(), None)])
             .unwrap();
 
-        let solvers = create_solvers(&mut egraph);
+        let solvers = Solvers::new(&mut egraph);
 
         Context {
             egraph,

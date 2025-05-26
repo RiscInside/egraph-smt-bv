@@ -141,7 +141,9 @@ impl SkylineBuilder {
         }
 
         assert_eq!(last_height, 0); // After all the removals, the last height we should have seen is 0
-        updates.push((last_offset, last_height));
+        if last_offset != 0 {
+            updates.push((last_offset, 0));
+        }
         Skyline { updates }
     }
 }
@@ -192,5 +194,10 @@ mod tests {
             skyline.non_zero_height_slices_iter().collect::<Vec<_>>(),
             vec![((1..3).into(), 5), ((3..4).into(), 3)]
         );
+    }
+
+    #[test]
+    fn test_empty_skyline_builder() {
+        assert_eq!(SkylineBuilder::default().build().updates, vec![]);
     }
 }

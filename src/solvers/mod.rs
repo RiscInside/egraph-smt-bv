@@ -1,6 +1,7 @@
 use std::{
     fs::File,
     io::Write as _,
+    ops::DerefMut,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -9,6 +10,7 @@ use crate::{plan::PlanResult, Context};
 use anyhow::Context as _;
 use egglog::{
     ast::Symbol,
+    call, lit,
     sort::{EqSort, FromSort as _, I64Sort, StringSort, UnitSort},
     span, ArcSort, EGraph, PrimitiveLike, Value,
 };
@@ -21,7 +23,8 @@ pub(crate) mod linsolve2;
 pub(crate) mod proxy;
 pub(crate) mod simulator2;
 
-use bvconst::{BvConst, BvConstSort, BvConstTable};
+use bvconst::{BvConstSort, BvConstTable};
+use num_bigint::BigUint;
 use proxy::ProxySort;
 use simulator2::{Operation, SimulationCore};
 
@@ -44,12 +47,20 @@ impl Variable for Value {
     }
 }
 
+#[derive(Debug)]
+pub(crate) enum Hypothesis<V: Variable> {
+    Equal(V, V),
+    IsConstant(V, BigUint, Width),
+}
+
 /// Combined solvers state
 pub(crate) struct Solvers {
     /// Linear solver
     linear: linsolve2::Solver<Value>,
     /// Simulation core
     sim_core: simulator2::SimulationCore<Value>,
+    /// Sort of values
+    v_sort: ArcSort,
     /// Table of bitvector constants
     pub(crate) bv_constants_index: BvConstTable,
     /// Symbol for "V"
@@ -58,24 +69,133 @@ pub(crate) struct Solvers {
 
 pub(crate) type SolversRef = Arc<Mutex<Solvers>>;
 
-impl Default for Solvers {
-    fn default() -> Self {
-        Self {
+impl Solvers {
+    pub(crate) fn new(egraph: &mut EGraph) -> Arc<Mutex<Solvers>> {
+        let v_sort: Arc<EqSort> = egraph
+            .get_sort_by(|sort: &Arc<EqSort>| sort.name.as_str() == "V")
+            .context("No value sort defined yet")
+            .unwrap();
+
+        let solver = Arc::new(Mutex::new(Solvers {
             linear: Default::default(),
             sim_core: SimulationCore::default(),
+            v_sort: v_sort.clone(),
             bv_constants_index: Default::default(),
             v_symbol: "V".into(),
-        }
-    }
-}
+        }));
 
-impl Solvers {
+        egraph
+            .add_arcsort(Arc::new(BvConstSort::new(solver.clone())), span!())
+            .context("Adding bit-vector constant sort")
+            .unwrap();
+
+        egraph
+            .add_arcsort(Arc::new(ProxySort::new(egraph, solver.clone())), span!())
+            .context("Adding proxy sort")
+            .unwrap();
+
+        let unit_sort: Arc<UnitSort> = egraph.get_sort_by(|_| true).unwrap();
+        let int_sort: Arc<I64Sort> = egraph.get_sort_by(|_| true).unwrap();
+        let bvconst_sort: Arc<BvConstSort> = egraph.get_sort_by(|_| true).unwrap();
+        let string_sort: Arc<StringSort> = egraph.get_sort_by(|_| true).unwrap();
+
+        egraph.add_primitive(AssertConstant {
+            v_sort: v_sort.clone(),
+            unit_sort: unit_sort.clone(),
+            int_sort: int_sort.clone(),
+            bvconst_sort: bvconst_sort.clone(),
+            solvers: solver.clone(),
+        });
+
+        let mut add_sim_binop = |name: &'static str, binop| {
+            egraph.add_primitive(AssertSimulatorBinOp {
+                v_sort: v_sort.clone(),
+                int_sort: int_sort.clone(),
+                unit_sort: unit_sort.clone(),
+                name: name.into(),
+                handler: move |solver, lhs, rhs, result, width| {
+                    solver.assert_is_binop(binop, lhs, rhs, result, width)
+                },
+                solvers: solver.clone(),
+            })
+        };
+
+        add_sim_binop("solvers-eq", Operation::Equal);
+        add_sim_binop("solvers-concat", Operation::Concat);
+        add_sim_binop("solvers-and", Operation::And);
+        add_sim_binop("solvers-or", Operation::Or);
+        add_sim_binop("solvers-xor", Operation::Xor);
+        add_sim_binop("solvers-mul", Operation::Mul);
+        add_sim_binop("solvers-shl", Operation::Shl);
+        add_sim_binop("solvers-lshr", Operation::LShr);
+        add_sim_binop("solvers-ashr", Operation::AShr);
+        add_sim_binop("solvers-ule", Operation::Ule);
+        add_sim_binop("solvers-ult", Operation::Ult);
+        add_sim_binop("solvers-sle", Operation::Sle);
+        add_sim_binop("solvers-slt", Operation::Slt);
+
+        let mut add_sim_unop = |name: &'static str, unop| {
+            egraph.add_primitive(AssertSimulatorUnOp {
+                v_sort: v_sort.clone(),
+                int_sort: int_sort.clone(),
+                unit_sort: unit_sort.clone(),
+                name: name.into(),
+                handler: move |solver, operand, result, width| {
+                    solver.assert_is_unop(unop, operand, result, width);
+                },
+                solvers: solver.clone(),
+            });
+        };
+
+        add_sim_unop("solvers-not", Operation::Not);
+        add_sim_unop("solvers-neg", Operation::Neg);
+
+        egraph.add_primitive(AssertAdd {
+            v_sort: v_sort.clone(),
+            unit_sort: unit_sort.clone(),
+            int_sort: int_sort.clone(),
+            solvers: solver.clone(),
+        });
+
+        egraph.add_primitive(AssertIfThenElse {
+            v_sort: v_sort.clone(),
+            int_sort: int_sort.clone(),
+            unit_sort: unit_sort.clone(),
+            solvers: solver.clone(),
+        });
+
+        egraph.add_primitive(AssertExtract {
+            v_sort: v_sort.clone(),
+            unit_sort: unit_sort.clone(),
+            solvers: solver.clone(),
+            int_sort: int_sort.clone(),
+        });
+
+        egraph.add_primitive(AssertMulConstant {
+            v_sort: v_sort.clone(),
+            unit_sort: unit_sort.clone(),
+            int_sort: int_sort.clone(),
+            bvconst_sort: bvconst_sort.clone(),
+            solvers: solver.clone(),
+        });
+
+        egraph.add_primitive(AssertInput {
+            v_sort: v_sort.clone(),
+            unit_sort: unit_sort.clone(),
+            int_sort: int_sort.clone(),
+            string_sort: string_sort.clone(),
+            solvers: solver.clone(),
+        });
+
+        solver
+    }
+
     fn on_merge(&mut self, old: Value, new: Value, width: Width) {
         self.linear.assert_is_equal(old, new, width);
         self.sim_core.union(old, new);
     }
 
-    fn load_constant(&self, value: Value) -> BvConst {
+    fn load_constant(&self, value: Value) -> BigUint {
         self.bv_constants_index
             .get_index(value.bits as usize)
             .unwrap()
@@ -97,27 +217,41 @@ impl Solvers {
         self.sim_core.add_input(input, name, width);
     }
 
-    fn assert_if_then_else(&mut self, cond: Value, then: Value, otherwise: Value, out: Value) {
+    fn assert_if_then_else(
+        &mut self,
+        cond: Value,
+        then: Value,
+        otherwise: Value,
+        out: Value,
+        width: Width,
+    ) {
         self.sim_core.add_operation(
             simulator2::Operation::IfThenElse,
             vec![cond, then, otherwise],
             out,
+            width,
         );
     }
 
     fn assert_is_add(&mut self, lhs: Value, rhs: Value, result: Value, width: Width) {
         self.sim_core
-            .add_operation(simulator2::Operation::Add, vec![lhs, rhs], result);
+            .add_operation(simulator2::Operation::Add, vec![lhs, rhs], result, width);
         self.linear.assert_is_add(lhs, rhs, result, width);
     }
 
     fn assert_is_mul_const(&mut self, lhs: Value, constant: Value, result: Value, width: Width) {
-        let constant = self.load_constant(constant).0;
+        let constant = self.load_constant(constant);
         self.linear.assert_is_scaled(lhs, constant, result, width);
     }
 
-    fn assert_is_unop(&mut self, op: simulator2::Operation, input: Value, result: Value) {
-        self.sim_core.add_operation(op, vec![input], result);
+    fn assert_is_unop(
+        &mut self,
+        op: simulator2::Operation,
+        input: Value,
+        result: Value,
+        width: Width,
+    ) {
+        self.sim_core.add_operation(op, vec![input], result, width);
     }
 
     fn assert_is_binop(
@@ -126,131 +260,24 @@ impl Solvers {
         lhs: Value,
         rhs: Value,
         result: Value,
+        width: Width,
     ) {
-        self.sim_core.add_operation(op, vec![lhs, rhs], result);
+        self.sim_core
+            .add_operation(op, vec![lhs, rhs], result, width);
     }
 
     fn assert_is_constant(&mut self, constant: Value, val: Value, width: Width) {
-        let constant = self.load_constant(constant).0;
+        let big_uint = self.load_constant(constant);
         self.sim_core.add_operation(
             simulator2::Operation::Constant {
-                table_index: constant.bits() as usize,
+                table_index: constant.bits as usize,
             },
             vec![],
             val,
+            width,
         );
-        self.linear.assert_is_constant(constant, val, width);
+        self.linear.assert_is_constant(big_uint, val, width);
     }
-}
-
-pub(crate) fn create_solvers(egraph: &mut EGraph) -> Arc<Mutex<Solvers>> {
-    let solver = Arc::new(Mutex::new(Solvers::default()));
-    let v_sort: Arc<EqSort> = egraph
-        .get_sort_by(|sort: &Arc<EqSort>| sort.name.as_str() == "V")
-        .context("No value sort defined yet")
-        .unwrap();
-
-    egraph
-        .add_arcsort(Arc::new(BvConstSort::new(solver.clone())), span!())
-        .context("Adding bit-vector constant sort")
-        .unwrap();
-
-    egraph
-        .add_arcsort(Arc::new(ProxySort::new(egraph, solver.clone())), span!())
-        .context("Adding proxy sort")
-        .unwrap();
-
-    let unit_sort: Arc<UnitSort> = egraph.get_sort_by(|_| true).unwrap();
-    let int_sort: Arc<I64Sort> = egraph.get_sort_by(|_| true).unwrap();
-    let bvconst_sort: Arc<BvConstSort> = egraph.get_sort_by(|_| true).unwrap();
-    let string_sort: Arc<StringSort> = egraph.get_sort_by(|_| true).unwrap();
-
-    egraph.add_primitive(AssertConstant {
-        v_sort: v_sort.clone(),
-        unit_sort: unit_sort.clone(),
-        int_sort: int_sort.clone(),
-        bvconst_sort: bvconst_sort.clone(),
-        solvers: solver.clone(),
-    });
-
-    let mut add_sim_binop = |name: &'static str, binop| {
-        egraph.add_primitive(AssertSimulatorBinOp {
-            v_sort: v_sort.clone(),
-            unit_sort: unit_sort.clone(),
-            name: name.into(),
-            handler: move |solver, lhs, rhs, result| {
-                solver.assert_is_binop(binop, lhs, rhs, result)
-            },
-            solvers: solver.clone(),
-        })
-    };
-
-    add_sim_binop("solvers-eq", Operation::Equal);
-    add_sim_binop("solvers-concat", Operation::Concat);
-    add_sim_binop("solvers-and", Operation::And);
-    add_sim_binop("solvers-or", Operation::Or);
-    add_sim_binop("solvers-xor", Operation::Xor);
-    add_sim_binop("solvers-mul", Operation::Mul);
-    add_sim_binop("solvers-shl", Operation::Shl);
-    add_sim_binop("solvers-lshr", Operation::LShr);
-    add_sim_binop("solvers-ashr", Operation::AShr);
-    add_sim_binop("solvers-ule", Operation::Ule);
-    add_sim_binop("solvers-ult", Operation::Ult);
-    add_sim_binop("solvers-sle", Operation::Sle);
-    add_sim_binop("solvers-slt", Operation::Slt);
-
-    let mut add_sim_unop = |name: &'static str, unop| {
-        egraph.add_primitive(AssertSimulatorUnOp {
-            v_sort: v_sort.clone(),
-            unit_sort: unit_sort.clone(),
-            name: name.into(),
-            handler: move |solver, operand, result| {
-                solver.assert_is_unop(unop, operand, result);
-            },
-            solvers: solver.clone(),
-        });
-    };
-
-    add_sim_unop("solvers-not", Operation::Not);
-    add_sim_unop("solvers-neg", Operation::Neg);
-
-    egraph.add_primitive(AssertAdd {
-        v_sort: v_sort.clone(),
-        unit_sort: unit_sort.clone(),
-        int_sort: int_sort.clone(),
-        solvers: solver.clone(),
-    });
-
-    egraph.add_primitive(AssertIfThenElse {
-        v_sort: v_sort.clone(),
-        unit_sort: unit_sort.clone(),
-        solvers: solver.clone(),
-    });
-
-    egraph.add_primitive(AssertExtract {
-        v_sort: v_sort.clone(),
-        unit_sort: unit_sort.clone(),
-        solvers: solver.clone(),
-        int_sort: int_sort.clone(),
-    });
-
-    egraph.add_primitive(AssertMulConstant {
-        v_sort: v_sort.clone(),
-        unit_sort: unit_sort.clone(),
-        int_sort: int_sort.clone(),
-        bvconst_sort: bvconst_sort.clone(),
-        solvers: solver.clone(),
-    });
-
-    egraph.add_primitive(AssertInput {
-        v_sort: v_sort.clone(),
-        unit_sort: unit_sort.clone(),
-        int_sort: int_sort.clone(),
-        string_sort: string_sort.clone(),
-        solvers: solver.clone(),
-    });
-
-    solver
 }
 
 struct AssertAdd {
@@ -377,15 +404,16 @@ impl PrimitiveLike for AssertMulConstant {
     }
 }
 
-struct AssertSimulatorUnOp<F: Fn(&mut Solvers, Value, Value)> {
+struct AssertSimulatorUnOp<F: Fn(&mut Solvers, Value, Value, Width)> {
     v_sort: ArcSort,
+    int_sort: Arc<I64Sort>,
     unit_sort: Arc<UnitSort>,
     solvers: Arc<Mutex<Solvers>>,
     name: Symbol,
     handler: F,
 }
 
-impl<F: Fn(&mut Solvers, Value, Value)> PrimitiveLike for AssertSimulatorUnOp<F> {
+impl<F: Fn(&mut Solvers, Value, Value, Width)> PrimitiveLike for AssertSimulatorUnOp<F> {
     fn name(&self) -> Symbol {
         self.name
     }
@@ -399,6 +427,7 @@ impl<F: Fn(&mut Solvers, Value, Value)> PrimitiveLike for AssertSimulatorUnOp<F>
             vec![
                 self.v_sort.clone(),
                 self.v_sort.clone(),
+                self.int_sort.clone(),
                 self.unit_sort.clone(),
             ],
             span.clone(),
@@ -412,20 +441,21 @@ impl<F: Fn(&mut Solvers, Value, Value)> PrimitiveLike for AssertSimulatorUnOp<F>
         _egraph: Option<&mut EGraph>,
     ) -> Option<Value> {
         let solver = &mut self.solvers.lock().unwrap();
-        (self.handler)(solver, values[0], values[1]);
+        (self.handler)(solver, values[0], values[1], values[2].bits);
         Some(Value::unit())
     }
 }
 
-struct AssertSimulatorBinOp<F: Fn(&mut Solvers, Value, Value, Value)> {
+struct AssertSimulatorBinOp<F: Fn(&mut Solvers, Value, Value, Value, Width)> {
     v_sort: ArcSort,
+    int_sort: Arc<I64Sort>,
     unit_sort: Arc<UnitSort>,
     solvers: Arc<Mutex<Solvers>>,
     name: Symbol,
     handler: F,
 }
 
-impl<F: Fn(&mut Solvers, Value, Value, Value)> PrimitiveLike for AssertSimulatorBinOp<F> {
+impl<F: Fn(&mut Solvers, Value, Value, Value, Width)> PrimitiveLike for AssertSimulatorBinOp<F> {
     fn name(&self) -> Symbol {
         self.name
     }
@@ -440,6 +470,7 @@ impl<F: Fn(&mut Solvers, Value, Value, Value)> PrimitiveLike for AssertSimulator
                 self.v_sort.clone(),
                 self.v_sort.clone(),
                 self.v_sort.clone(),
+                self.int_sort.clone(),
                 self.unit_sort.clone(),
             ],
             span.clone(),
@@ -453,7 +484,7 @@ impl<F: Fn(&mut Solvers, Value, Value, Value)> PrimitiveLike for AssertSimulator
         _egraph: Option<&mut EGraph>,
     ) -> Option<Value> {
         let solver = &mut self.solvers.lock().unwrap();
-        (self.handler)(solver, values[0], values[1], values[2]);
+        (self.handler)(solver, values[0], values[1], values[2], values[3].bits);
 
         Some(Value::unit())
     }
@@ -461,6 +492,7 @@ impl<F: Fn(&mut Solvers, Value, Value, Value)> PrimitiveLike for AssertSimulator
 
 struct AssertIfThenElse {
     v_sort: ArcSort,
+    int_sort: Arc<I64Sort>,
     unit_sort: Arc<UnitSort>,
     solvers: Arc<Mutex<Solvers>>,
 }
@@ -481,6 +513,7 @@ impl PrimitiveLike for AssertIfThenElse {
                 self.v_sort.clone(),
                 self.v_sort.clone(),
                 self.v_sort.clone(),
+                self.int_sort.clone(),
                 self.unit_sort.clone(),
             ],
             span.clone(),
@@ -494,7 +527,7 @@ impl PrimitiveLike for AssertIfThenElse {
         _egraph: Option<&mut EGraph>,
     ) -> Option<Value> {
         let solver = &mut self.solvers.lock().unwrap();
-        solver.assert_if_then_else(values[0], values[1], values[2], values[3]);
+        solver.assert_if_then_else(values[0], values[1], values[2], values[3], values[4].bits);
         Some(Value::unit())
     }
 }
@@ -585,31 +618,111 @@ impl PrimitiveLike for AssertInput {
 
 impl Context {
     pub(crate) fn linsolve_tactic(&mut self) -> PlanResult<bool> {
-        // Rebuild e-graph to get all union-find updates
+        self.egraph.rebuild_nofail();
+        self.text("Running linsolve tactic")?;
+
+        let mut unions_count = 0;
+        {
+            let mut solvers_guard = self.solvers.lock().unwrap();
+            let solvers = solvers_guard.deref_mut();
+
+            // Push equalities from the union solver
+            let v_symbol = solvers.v_symbol;
+            solvers.linear.solve_all_pending(|lhs, rhs| {
+                let lhs = self.egraph.find(&solvers.v_sort, lhs);
+                let rhs = self.egraph.find(&solvers.v_sort, rhs);
+
+                if lhs != rhs {
+                    unions_count += 1;
+                    self.egraph.union(lhs.bits, rhs.bits, v_symbol);
+                }
+            });
+        }
+
+        // Rebuild the e-graph again
+        self.egraph.rebuild_nofail();
+        self.text(&format!("Linear solver submitted {} unions", unions_count))?;
+
+        Ok(unions_count != 0)
+    }
+
+    pub(crate) fn mine_hypotheses_tactic(&mut self) -> PlanResult<bool> {
+        self.text("Running simulation tactic")?;
         self.egraph.rebuild_nofail();
 
-        let mut solvers = self.solvers.lock().unwrap();
+        let mut solvers_guard = self.solvers.lock().unwrap();
+        let solvers = solvers_guard.deref_mut();
 
-        // Push equalities from the union solver
-        let v_symbol = solvers.v_symbol;
-        let mut unions_count = 0;
-        solvers.linear.solve_all_pending(|lhs, rhs| {
-            unions_count += 1;
-            self.egraph.union(lhs.bits, rhs.bits, v_symbol);
-        });
-        drop(solvers);
+        solvers
+            .sim_core
+            .mine_hypotheses(&solvers.bv_constants_index, 10);
+
+        let hypotheses_pending = solvers.sim_core.hypotheses_pending();
+
+        drop(solvers_guard);
+        self.egraph.rebuild_nofail();
+
+        self.text(&format!(
+            "Simulation mined out {} hypotheses (some of them potentially redundant)",
+            hypotheses_pending
+        ))?;
+
+        Ok(hypotheses_pending != 0)
+    }
+
+    pub(crate) fn smt_solve_one_tactic(&mut self) -> PlanResult<bool> {
+        self.egraph.rebuild_nofail();
+        self.text("Running smt-one tactic")?;
+
+        let (hypotheses, v_symbol, remaining) = {
+            let mut solvers_guard = self.solvers.lock().unwrap();
+            let solvers = solvers_guard.deref_mut();
+
+            let Some(hypotheses) = solvers
+                .sim_core
+                .prove_any_one_hypothesis(&solvers.bv_constants_index)
+            else {
+                return Ok(false);
+            };
+
+            (
+                hypotheses,
+                solvers.v_symbol,
+                solvers.sim_core.hypotheses_pending(),
+            )
+        };
+
+        // Reflect the hypothesis back to the e-graph
+        match hypotheses {
+            Hypothesis::Equal(lhs, rhs) => {
+                self.egraph.union(lhs.bits, rhs.bits, v_symbol);
+            }
+            Hypothesis::IsConstant(lhs, value, width) => {
+                let (_, result) = self
+                    .egraph
+                    .eval_expr(&call!(
+                        "BvConst",
+                        [
+                            call!(
+                                "bvconst-from-string",
+                                [lit!(Symbol::from(value.to_string()))]
+                            ),
+                            lit!(i64::try_from(width).unwrap())
+                        ]
+                    ))
+                    .unwrap();
+                self.egraph.union(lhs.bits, result.bits, v_symbol);
+            }
+        }
 
         // Rebuild the e-graph again
         self.egraph.rebuild_nofail();
 
-        if unions_count != 0 {
-            self.text(&format!(
-                "Linear solver submitted {} unions (not all of them necessarily canonical)",
-                unions_count
-            ))?;
-        }
+        self.text(&format!(
+            "SMT solver contributed to the e-graph. {remaining} hypothesis left to solve"
+        ))?;
 
-        Ok(unions_count != 0)
+        Ok(true)
     }
 
     pub(crate) fn dump_dag_tactic(&mut self, path: &PathBuf) -> anyhow::Result<()> {

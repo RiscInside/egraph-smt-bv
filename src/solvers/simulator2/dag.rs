@@ -68,7 +68,7 @@ impl std::fmt::Display for Operation {
 }
 
 #[derive(Debug)]
-enum Recipe<V: Variable> {
+pub(in crate::solvers::simulator2) enum Recipe<V: Variable> {
     Computed { op: Operation, inputs: Vec<Cell<V>> },
     Slice(Slice),
     NonComputable,
@@ -76,14 +76,15 @@ enum Recipe<V: Variable> {
 
 /// Active (i.e. non-subsumed by parent UF) node in the DAG. This roughly corresponds to e-graph e-nodes,
 /// except we only keep cheapest nodes around.
-#[derive(Debug)]
-struct Node<V: Variable> {
+pub(in crate::solvers::simulator2) struct Node<V: Variable> {
+    /// Width of the bitvector
+    pub(in crate::solvers::simulator2) width: Width,
+    /// Operation to compute value for the node.
+    pub(in crate::solvers::simulator2) recipe: Recipe<V>,
     /// Node's output. For self.mappings[v], this would be equal to a canonical representative of `v`.
     /// Generally speaking we are fine with using non-canonical nodes - non-incremental pass would make
     /// sure that we are using a correct node.
     output: Cell<V>,
-    /// Operation to compute value for the node.
-    recipe: Recipe<V>,
     /// Node's skyline, i.e. distance to all input slices. This is used to infer topological ordering
     /// on nodes and aliasing checks for functional dependency introduction.
     skyline: Skyline,
@@ -92,7 +93,7 @@ struct Node<V: Variable> {
     last_skyline_canonicalization_ts: Cell<u64>,
     /// All portins of input this node is in charge of computing. This vector should be empty for
     /// removed or non-canonical ndoes
-    input_portions: Vec<Slice>,
+    pub(in crate::solvers::simulator2) input_portions: Vec<Slice>,
 }
 
 impl<V: Variable> Node<V> {
@@ -108,8 +109,19 @@ impl<V: Variable> Node<V> {
         (self.skyline.updates == vec![(slice.start, 1), (slice.end, 0)]).then_some(slice)
     }
 
-    fn non_computable(skyline: Skyline, output: V, ts: u64) -> Self {
+    pub(crate) fn is_constant(&self) -> bool {
+        matches!(
+            self.recipe,
+            Recipe::Computed {
+                op: Operation::Constant { .. },
+                ..
+            }
+        )
+    }
+
+    fn non_computable(skyline: Skyline, output: V, width: Width, ts: u64) -> Self {
         Self {
+            width,
             output: output.into(),
             recipe: Recipe::NonComputable,
             skyline,
@@ -119,20 +131,63 @@ impl<V: Variable> Node<V> {
     }
 }
 
+impl<V: Variable> std::fmt::Display for Node<V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for input_portion in self.input_portions.iter() {
+            write!(
+                f,
+                "input[{}..{}] = ",
+                input_portion.start, input_portion.end
+            )?;
+        }
+
+        write!(f, "{} = ", self.output.get().show())?;
+
+        match &self.recipe {
+            Recipe::Computed { op, inputs } => {
+                write!(
+                    f,
+                    "{op}({}) ",
+                    inputs.iter().map(|input| input.get().show()).join(", ")
+                )
+            }
+            Recipe::Slice(slice) => {
+                write!(f, "input[{}..{}] ", slice.start, slice.end)
+            }
+            Recipe::NonComputable => write!(f, "noncomputable"),
+        }?;
+
+        write!(
+            f,
+            "(skyline: [{}])",
+            self.skyline
+                .non_zero_height_slices_iter()
+                .map(|(slice, height)| format!("({}..{}, {})", slice.start, slice.end, height))
+                .join(", ")
+        )
+    }
+}
+
+impl<V: Variable> std::fmt::Debug for Node<V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 /// Map that keeps track of slices that are computable
 type ComputableSlices<V> = IntervalMap<Width, V>;
 
 pub(in crate::solvers) struct Dag<V: Variable> {
     /// E-class ID to matching node map.
-    mappings: HashMap<V, Node<V>>,
+    pub(in crate::solvers::simulator2) mappings: HashMap<V, Node<V>>,
     /// Slices of input which can be computed
-    computable_slices: ComputableSlices<V>,
+    pub(in crate::solvers::simulator2) computable_slices: ComputableSlices<V>,
     /// Timestamp of the last update which can trigger re-canonicalization
     last_update_ts: u64,
     /// Input e-classes by name, and their allocated input ranges
     input_slices: HashMap<String, Slice>,
     /// Size of the input bitvector. This includes computable input portions
-    input_len: Width,
+    pub(in crate::solvers::simulator2) input_len: Width,
     /// Alternative nodes, waiting to be processed. Since nodes store output inside them,
     /// we know what value they are supposed to be computing value for
     postponed: Vec<Node<V>>,
@@ -363,7 +418,7 @@ impl<V: Variable> Dag<V> {
         result
     }
 
-    fn find(&self, variable: V) -> V {
+    pub(in crate::solvers::simulator2) fn find(&self, variable: V) -> V {
         Self::find_static(&self.mappings, variable)
     }
 
@@ -382,7 +437,7 @@ impl<V: Variable> Dag<V> {
         let pick_old_as_active = match (old_higher_up, new_higher_up) {
             (true, false) => false, // old is higher than new, pick new as the replacement,
             (false, true) => true,  // new is higher than old, pick old as the replacement,
-            (false, false) => true, // heights match for all slices, it doesn't matter which one we pick - both nodes can be evaluated in any order
+            (false, false) => old_node.is_constant(), // important to check for constants here, as expressions derived from constants have empty skylines
             (true, true) => {
                 // if both nodes have segments they are higher on, we don't know which one will be evaluated first in the future - this would
                 // depend on new input fdeps introduced in the future.
@@ -427,6 +482,7 @@ impl<V: Variable> Dag<V> {
         let old = self.canonicalize_skyline_for(old);
 
         let old_node = self.mappings.remove(&old).unwrap();
+        let width = old_node.width;
         old_node.output.set(new);
 
         // Uhh, I couldn't figure out how to do this with entry() or even remove(). The tricky
@@ -438,8 +494,10 @@ impl<V: Variable> Dag<V> {
             let skyline = old_node.skyline.clone();
             self.mappings.insert(new, old_node);
             // We need to keep some node for `old` as a reference point for skyline computations.
-            self.mappings
-                .insert(old, Node::non_computable(skyline, new, self.last_update_ts));
+            self.mappings.insert(
+                old,
+                Node::non_computable(skyline, new, width, self.last_update_ts),
+            );
             return;
         };
 
@@ -447,7 +505,7 @@ impl<V: Variable> Dag<V> {
             Ok(result) => {
                 self.mappings.insert(
                     old,
-                    Node::non_computable(result.skyline.clone(), new, self.last_update_ts),
+                    Node::non_computable(result.skyline.clone(), new, width, self.last_update_ts),
                 );
                 self.mappings.insert(new, result);
             }
@@ -515,6 +573,7 @@ impl<V: Variable> Dag<V> {
         op: Operation,
         inputs: Vec<V>,
         output: V,
+        width: Width,
     ) {
         // SAFETY: Cell<V> and V have the same representation
         let inputs: Vec<Cell<V>> = unsafe { std::mem::transmute(inputs) };
@@ -525,6 +584,7 @@ impl<V: Variable> Dag<V> {
         let skyline = Self::compute_equation_skyline(&self.mappings, op, &inputs);
 
         let new_node = Node {
+            width,
             output: output.into(),
             skyline,
             recipe: Recipe::Computed { op, inputs },
@@ -540,6 +600,7 @@ impl<V: Variable> Dag<V> {
         let skyline = self.canonicalize_skyline(slice.into());
 
         self.add_node(Node {
+            width: slice.width(),
             output: output.into(),
             recipe: Recipe::Slice(slice),
             skyline,
@@ -565,7 +626,12 @@ impl<V: Variable> Dag<V> {
         }
 
         // Defer to normal, computed extract
-        self.add_equation(Operation::Extract(slice), vec![input], output);
+        self.add_equation(
+            Operation::Extract(slice),
+            vec![input],
+            output,
+            slice.width(),
+        );
     }
 
     /// Add an input e-class
@@ -589,6 +655,7 @@ impl<V: Variable> Dag<V> {
                     skyline: slice.into(),
                     input_portions: vec![],
                     last_skyline_canonicalization_ts: self.last_update_ts.into(),
+                    width: slice.width(),
                 });
             }
         }
@@ -600,9 +667,26 @@ impl<V: Variable> Dag<V> {
     pub(in crate::solvers::simulator2) fn rebuild(&mut self) -> Vec<V> {
         let all_eclasses: Vec<V> = self.mappings.keys().cloned().collect();
 
-        // Start by canonicalizing all skylines for all nodes in the DAG
-        for eclass in all_eclasses {
+        // Canonicalize all skylines for all nodes in the DAG
+        for eclass in all_eclasses.iter().cloned() {
             self.canonicalize_skyline_for(eclass);
+        }
+
+        // Convert all input slices that exactly match computable intervals to point to respective computations
+        for eclass in all_eclasses.iter() {
+            let node = self.mappings.get_mut(eclass).unwrap();
+            if let Recipe::Slice(slice) = node.recipe {
+                let Some(&alternative) = self.computable_slices.get(slice.start..slice.end) else {
+                    continue;
+                };
+
+                node.recipe = Recipe::NonComputable;
+                node.output.set(alternative);
+            }
+        }
+
+        // Update all nodes to use canonical IDs.
+        for eclass in all_eclasses {
             self.canonicalize_node(&self.mappings[&eclass]);
         }
 
@@ -669,45 +753,7 @@ impl<V: Variable> Dag<V> {
         let mut result = String::new();
         for value in self.rebuild() {
             let node = &self.mappings[&value];
-
-            for input_portion in node.input_portions.iter() {
-                write!(
-                    &mut result,
-                    "input[{}..{}] = ",
-                    input_portion.start, input_portion.end
-                )
-                .unwrap();
-            }
-
-            write!(&mut result, "{} = ", value.show()).unwrap();
-
-            match &node.recipe {
-                Recipe::Computed { op, inputs } => {
-                    write!(
-                        &mut result,
-                        "{op}({}) ",
-                        inputs
-                            .iter()
-                            .map(|input| self.find(input.get()).show())
-                            .join(", ")
-                    )
-                }
-                Recipe::Slice(slice) => {
-                    write!(&mut result, "input[{}..{}] ", slice.start, slice.end)
-                }
-                Recipe::NonComputable => write!(&mut result, "noncomputable"),
-            }
-            .unwrap();
-
-            writeln!(
-                &mut result,
-                "(skyline: [{}])",
-                node.skyline
-                    .non_zero_height_slices_iter()
-                    .map(|(slice, height)| format!("({}..{}, {})", slice.start, slice.end, height))
-                    .join(", ")
-            )
-            .unwrap();
+            writeln!(&mut result, "{}", node).unwrap();
         }
 
         for (slice, value) in self.computable_slices.iter(0..) {
@@ -724,7 +770,6 @@ impl<V: Variable> Dag<V> {
         result
     }
 }
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -743,7 +788,7 @@ mod test {
         dag.declare_input(1, 64, "state".into());
         dag.add_extract(1, (0..32).into(), 2);
         dag.add_extract(1, (32..64).into(), 3);
-        dag.add_equation(Operation::Not, vec![2], 3);
+        dag.add_equation(Operation::Not, vec![2], 3, 32);
 
         dag.expect(expect![[r#"
             v2 = input[0..32] (skyline: [(0..32, 1)])
@@ -760,10 +805,10 @@ mod test {
         dag.declare_input(1, 512, "a".into());
         dag.declare_input(2, 512, "b".into());
 
-        dag.add_equation(Operation::And, vec![1, 2], 3); // (and a b)
-        dag.add_equation(Operation::Or, vec![1, 2], 4); // (or a b)
-        dag.add_equation(Operation::Add, vec![3, 4], 5); // (add (and a b) (or a b))
-        dag.add_equation(Operation::Add, vec![1, 2], 6); // (add a b)
+        dag.add_equation(Operation::And, vec![1, 2], 3, 512);
+        dag.add_equation(Operation::Or, vec![1, 2], 4, 512);
+        dag.add_equation(Operation::Add, vec![3, 4], 5, 512);
+        dag.add_equation(Operation::Add, vec![1, 2], 6, 512);
 
         dag.expect(expect![[r#"
             v1 = input[0..512] (skyline: [(0..512, 1)])
@@ -795,10 +840,8 @@ mod test {
 
     #[test]
     fn test_if_conversion_equivalent() {
-        // Could you tell this was made by ChatGPT?
         let mut dag: Dag<u64> = Dag::default();
 
-        // Declare enough input bits: cond + 4 values + 6 intermediates = 321 bits
         dag.declare_input(1, 321, "state".into());
 
         dag.add_extract(1, (0..1).into(), 2); // cond
@@ -807,29 +850,20 @@ mod test {
         dag.add_extract(1, (65..97).into(), 5); // c
         dag.add_extract(1, (97..129).into(), 6); // d
 
-        // a + b → 7
-        dag.add_equation(Operation::Add, vec![3, 4], 7);
-        // c + d → 8
-        dag.add_equation(Operation::Add, vec![5, 6], 8);
+        dag.add_equation(Operation::Add, vec![3, 4], 7, 32);
+        dag.add_equation(Operation::Add, vec![5, 6], 8, 32);
 
-        // if cond then (a + b) else (c + d) → 9
-        dag.add_equation(Operation::IfThenElse, vec![2, 7, 8], 9);
+        dag.add_equation(Operation::IfThenElse, vec![2, 7, 8], 9, 32);
+        dag.add_equation(Operation::IfThenElse, vec![2, 3, 5], 10, 32);
+        dag.add_equation(Operation::IfThenElse, vec![2, 4, 6], 11, 32);
+        dag.add_equation(Operation::Add, vec![10, 11], 12, 32);
 
-        // if cond then a else c → 10
-        dag.add_equation(Operation::IfThenElse, vec![2, 3, 5], 10);
-
-        // if cond then b else d → 11
-        dag.add_equation(Operation::IfThenElse, vec![2, 4, 6], 11);
-
-        // add results of the two ifs → 12
-        dag.add_equation(Operation::Add, vec![10, 11], 12);
-
-        dag.add_extract(1, (129..161).into(), 7); // a + b
-        dag.add_extract(1, (161..193).into(), 8); // c + d
-        dag.add_extract(1, (193..225).into(), 9); // if (a + b, c + d)
-        dag.add_extract(1, (225..257).into(), 10); // if a, c
-        dag.add_extract(1, (257..289).into(), 11); // if b, d
-        dag.add_extract(1, (289..321).into(), 12); // sum of ifs
+        dag.add_extract(1, (129..161).into(), 7);
+        dag.add_extract(1, (161..193).into(), 8);
+        dag.add_extract(1, (193..225).into(), 9);
+        dag.add_extract(1, (225..257).into(), 10);
+        dag.add_extract(1, (257..289).into(), 11);
+        dag.add_extract(1, (289..321).into(), 12);
 
         dag.expect(expect![[r#"
             v2 = input[0..1] (skyline: [(0..1, 1)])
@@ -860,8 +894,8 @@ mod test {
         dag.declare_input(1, 32, "a".into());
         dag.declare_input(2, 32, "b".into());
 
-        dag.add_equation(Operation::Not, vec![1], 2);
-        dag.add_equation(Operation::Not, vec![2], 1);
+        dag.add_equation(Operation::Not, vec![1], 2, 32);
+        dag.add_equation(Operation::Not, vec![2], 1, 32);
 
         dag.expect(expect![[r#"
             v1 = input[0..32] (skyline: [(0..32, 1)])
@@ -878,8 +912,8 @@ mod test {
         dag.add_extract(1, (0..32).into(), 2);
         dag.add_extract(1, (32..64).into(), 3);
 
-        dag.add_equation(Operation::Not, vec![2], 3);
-        dag.add_equation(Operation::Not, vec![3], 2);
+        dag.add_equation(Operation::Not, vec![2], 3, 32);
+        dag.add_equation(Operation::Not, vec![3], 2, 32);
 
         dag.expect(expect![[r#"
             v2 = input[0..32] (skyline: [(0..32, 1)])
@@ -898,8 +932,8 @@ mod test {
         dag.add_extract(2, (0..16).into(), 3);
 
         dag.add_extract(1, (32..48).into(), 4);
-        dag.add_equation(Operation::Not, vec![4], 5);
-        dag.add_equation(Operation::Neg, vec![5], 6);
+        dag.add_equation(Operation::Not, vec![4], 5, 16);
+        dag.add_equation(Operation::Neg, vec![5], 6, 16);
 
         dag.union(6, 3);
         dag.expect(expect![[r#"
@@ -921,13 +955,12 @@ mod test {
         dag.add_extract(2, (0..16).into(), 3);
 
         dag.add_extract(1, (32..48).into(), 4);
-        dag.add_equation(Operation::Not, vec![4], 5);
+        dag.add_equation(Operation::Not, vec![4], 5, 16);
 
         dag.add_extract(1, (16..32).into(), 6);
+        dag.add_equation(Operation::Neg, vec![5], 7, 16);
+        dag.add_equation(Operation::Not, vec![6], 8, 16);
 
-        dag.add_equation(Operation::Neg, vec![5], 7);
-
-        dag.add_equation(Operation::Not, vec![6], 8);
         dag.union(7, 3);
         dag.union(8, 4);
 
@@ -945,18 +978,13 @@ mod test {
 
     #[test]
     fn test_partial_computability_split() {
-        // Another ChatGPT made test
         let mut dag: Dag<u64> = Dag::default();
 
-        // Declare a 32-bit input
         dag.declare_input(1, 32, "state".into());
-        // Extract bits 0..16 and compute NOT over them ⇒ v3 computes [0..16]
         dag.add_extract(1, (0..16).into(), 2);
-        dag.add_equation(Operation::Not, vec![2], 3);
-        // Extract the remaining bits 16..32 as v4
+        dag.add_equation(Operation::Not, vec![2], 3, 16);
         dag.add_extract(1, (16..32).into(), 4);
-        // Now add across the full 0..32 range, mixing computed (v3) & raw (v4)
-        dag.add_equation(Operation::Add, vec![3, 4], 5);
+        dag.add_equation(Operation::Add, vec![3, 4], 5, 32);
 
         dag.expect(expect![[r#"
             v1 = input[0..32] (skyline: [(0..32, 1)])
@@ -964,6 +992,21 @@ mod test {
             v4 = input[16..32] (skyline: [(16..32, 1)])
             v3 = not(v2) (skyline: [(0..16, 2)])
             v5 = add(v3, v4) (skyline: [(0..16, 3), (16..32, 2)])
+        "#]]);
+    }
+
+    #[test]
+    fn test_subcomputation_union() {
+        let mut dag: Dag<u64> = Dag::default();
+
+        dag.declare_input(1, 32, "state".into());
+        dag.add_equation(Operation::Add, vec![1, 1], 2, 32);
+        dag.add_extract(2, (0..32).into(), 3);
+        dag.union(2, 3);
+
+        dag.expect(expect![[r#"
+            v1 = input[0..32] (skyline: [(0..32, 1)])
+            v3 = add(v1, v1) (skyline: [(0..32, 2)])
         "#]]);
     }
 }

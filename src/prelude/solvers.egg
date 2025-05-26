@@ -20,59 +20,59 @@
 (rule ((= e (BvConst c w)))
     ((solvers-constant c e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
 
-(rule ((= e (Equal a b)) (VProxy a) (VProxy b))
-    ((solvers-eq a b e) (set (VProxy e) (proxy e 1))) :ruleset snitch)
+(rule ((= e (Equal a b)) (VProxy a) (VProxy b) (= w (Width a)))
+    ((solvers-eq a b e 1) (set (VProxy e) (proxy e 1))) :ruleset snitch)
 
 (rule ((= e (Concat a b)) (= w (Width e)) (VProxy a) (VProxy b))
-    ((solvers-concat a b e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+    ((solvers-concat a b e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
 
 (rule ((= e (Extract i j a)) (= w (Width e)) (VProxy a))
     ((solvers-extract a i j e) (set (VProxy e) (proxy e w))) :ruleset snitch)
 
 (rule ((= e (ITE c t o)) (= w (Width e)) (VProxy c) (VProxy t) (VProxy o))
-    ((solvers-ite c t o e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+    ((solvers-ite c t o e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
 
 (rule ((= e (Not a)) (= w (Width e)) (VProxy a)) 
-    ((solvers-not a e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+    ((solvers-not a e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
 
 (rule ((= e (And a b)) (= w (Width e)) (VProxy a) (VProxy b))
-    ((solvers-and a b e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+    ((solvers-and a b e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
 
 (rule ((= e (Or a b)) (= w (Width e)) (VProxy a) (VProxy b))
-    ((solvers-or a b e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+    ((solvers-or a b e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
 
 (rule ((= e (Xor a b)) (= w (Width e)) (VProxy a) (VProxy b))
-    ((solvers-xor a b e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+    ((solvers-xor a b e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
 
 (rule ((= e (Neg a)) (= w (Width e)) (VProxy a)) 
-    ((solvers-neg a e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+    ((solvers-neg a e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
 
 (rule ((= e (Add e1 e2)) (VProxy e1) (VProxy e2) (= w (Width e1)))
     ((solvers-add e1 e2 e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
 
-(rule ((= e (Ule a b)) (VProxy a) (VProxy b))
-    ((solvers-ule a b e) (set (VProxy e) (proxy e 1))) :ruleset snitch)
+(rule ((= e (Ule a b)) (VProxy a) (VProxy b) (= w (Width a)))
+    ((solvers-ule a b e 1) (set (VProxy e) (proxy e 1))) :ruleset snitch)
 
-(rule ((= e (Ult a b)) (VProxy a) (VProxy b))
-    ((solvers-ule a b e) (set (VProxy e) (proxy e 1))) :ruleset snitch)
+(rule ((= e (Ult a b)) (VProxy a) (VProxy b) (= w (Width a)))
+    ((solvers-ule a b e 1) (set (VProxy e) (proxy e 1))) :ruleset snitch)
 
-(rule ((= e (Sle a b)) (VProxy a) (VProxy b))
-    ((solvers-ule a b e) (set (VProxy e) (proxy e 1))) :ruleset snitch)
+(rule ((= e (Sle a b)) (VProxy a) (VProxy b) (= w (Width a)))
+    ((solvers-ule a b e 1) (set (VProxy e) (proxy e 1))) :ruleset snitch)
 
-(rule ((= e (Slt a b)) (VProxy a) (VProxy b))
-    ((solvers-ule a b e) (set (VProxy e) (proxy e 1))) :ruleset snitch)
+(rule ((= e (Slt a b)) (VProxy a) (VProxy b) (= w (Width a)))
+    ((solvers-ule a b e 1) (set (VProxy e) (proxy e 1))) :ruleset snitch)
 
 (rule ((= e (Mul e1 e2)) (VProxy e1) (VProxy e2) (= w (Width e1)))
-    ((solvers-mul e1 e2 e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+    ((solvers-mul e1 e2 e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
 
 (rule ((= e (Shl e1 e2)) (VProxy e1) (VProxy e2) (= w (Width e1)))
-    ((solvers-shl e1 e2 e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+    ((solvers-shl e1 e2 e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
 
 (rule ((= e (LShr e1 e2)) (VProxy e1) (VProxy e2) (= w (Width e1)))
-    ((solvers-lshr e1 e2 e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+    ((solvers-lshr e1 e2 e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
 
 (rule ((= e (AShr e1 e2)) (VProxy e1) (VProxy e2) (= w (Width e1)))
-    ((solvers-ashr e1 e2 e) (set (VProxy e) (proxy e w))) :ruleset snitch)
+    ((solvers-ashr e1 e2 e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
 
 ; ### Additional queries
 

@@ -18,6 +18,8 @@ use egglog::{
 /// Width of any particular bitvector
 type Width = u64;
 
+mod slice;
+
 pub(crate) mod bvconst;
 pub(crate) mod linsolve2;
 pub(crate) mod proxy;
@@ -27,6 +29,7 @@ use bvconst::{BvConstSort, BvConstTable};
 use num_bigint::BigUint;
 use proxy::ProxySort;
 use simulator2::{Operation, SimulationCore};
+use slice::Slice;
 
 /// A trait for symbolic variable types. This is implemented for [`Value`] and [`u64`]
 /// (for testing purposes).
@@ -205,7 +208,7 @@ impl Solvers {
     fn assert_extract(&mut self, input: Value, i: Width, j: Width, out: Value) {
         self.sim_core.add_extract(
             input,
-            simulator2::Slice {
+            Slice {
                 start: j,
                 end: i + 1,
             },

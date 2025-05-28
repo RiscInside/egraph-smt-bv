@@ -1,9 +1,6 @@
 use crate::solvers::{
-    simulator2::{
-        skyline::{Skyline, SkylineBuilder},
-        Slice,
-    },
-    Variable, Width,
+    simulator2::skyline::{Skyline, SkylineBuilder},
+    Slice, Variable, Width,
 };
 use hashbrown::{hash_map::Entry, HashMap};
 use iset::IntervalMap;

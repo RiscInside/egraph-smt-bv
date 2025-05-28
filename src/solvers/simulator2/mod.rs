@@ -1,4 +1,4 @@
-use crate::solvers::{Hypothesis, Variable, Width};
+use crate::solvers::{Hypothesis, Slice, Variable, Width};
 use dag::Dag;
 use num_bigint::BigUint;
 use rand::{rngs::StdRng, SeedableRng};
@@ -11,35 +11,6 @@ mod skyline;
 mod smt;
 
 pub(in crate::solvers) use dag::Operation;
-
-/// Bitvector slice
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub(in crate::solvers) struct Slice {
-    pub(in crate::solvers) start: Width,
-    pub(in crate::solvers) end: Width,
-}
-
-impl From<std::ops::Range<Width>> for Slice {
-    fn from(value: std::ops::Range<Width>) -> Self {
-        Self {
-            start: value.start,
-            end: value.end,
-        }
-    }
-}
-
-impl Slice {
-    fn subslice(self, subslice: Slice) -> Self {
-        Self {
-            start: self.start + subslice.start,
-            end: self.start + subslice.end,
-        }
-    }
-
-    fn width(self) -> Width {
-        self.end - self.start
-    }
-}
 
 pub(in crate::solvers) struct SimulationCore<V: Variable> {
     /// Spanning DAG of the e-graph

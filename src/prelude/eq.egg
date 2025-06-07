@@ -23,6 +23,10 @@
 (rewrite (AllDistinctFrom v (VSCons v1 vs))
           (And (Not (Equal v v1)) (AllDistinctFrom v vs)) :ruleset desugar)
 
+; ### Commutativity of equality
+
+(rewrite (Equal a b) (Equal b a) :ruleset safe)
+
 ; ### Promoting equality to e-graph equality
 
 ; This is a part of a special `eq` ruleset that can introduce

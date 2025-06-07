@@ -24,6 +24,14 @@ struct Args {
     timeout: Option<u64>,
     #[arg(long)]
     keep_functions: bool,
+    #[arg(long, default_value = "false")]
+    no_linsolve: bool,
+    #[arg(long, default_value = "false")]
+    z3: bool,
+    #[arg(long)]
+    outer_iters: Option<usize>,
+    #[arg(long)]
+    inner_iters: Option<usize>,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -32,16 +40,24 @@ fn main() -> anyhow::Result<()> {
 
     ctx.print_results_to_stdout();
 
-    if args.keep_functions {
-        ctx.keep_functions();
-    }
+    ctx.keep_functions(args.keep_functions);
+    ctx.use_linear_solver(!args.no_linsolve);
+    ctx.use_bitblasting_solver(args.z3);
 
     if args.history.is_some() {
         ctx.enable_history_collection();
     }
 
     if let Some(ms) = args.timeout {
-        ctx.add_timeout(std::time::Duration::from_millis(ms));
+        ctx.set_timeout(std::time::Duration::from_millis(ms));
+    }
+
+    if let Some(outer) = args.outer_iters {
+        ctx.set_outer_iterations_count(outer);
+    }
+
+    if let Some(inner) = args.inner_iters {
+        ctx.set_inner_iterations_count(inner);
     }
 
     // Add egglog and markdown sinks

@@ -63,7 +63,13 @@ pub(crate) enum Plan {
 
 impl Plan {
     /// Default plan for checking satisfiability.
-    pub(crate) fn check_sat_default(timeout: Option<std::time::Duration>) -> Plan {
+    pub(crate) fn check_sat_default(
+        outer_iterations: usize,
+        inner_iterations: usize,
+        use_linsolve: bool,
+        use_smt: bool,
+        timeout: Option<std::time::Duration>,
+    ) -> Plan {
         // Initial preprocessing pass
         let saturate_first = Plan::Saturate(vec![
             Plan::Saturate(vec![Plan::Leaf(Tactic::RunRuleset(Symbol::from("width")))]),
@@ -74,36 +80,42 @@ impl Plan {
         let run_once = Plan::Leaf(Tactic::RunRuleset(Symbol::from("once")));
 
         // This block always terminates
-        let safe_block = Plan::Saturate(vec![
+        let mut safe_block = Plan::Saturate(vec![
             Plan::Saturate(vec![
                 Plan::Saturate(vec![
-                    Plan::Saturate(vec![
-                        Plan::Leaf(Tactic::RunRuleset("width".into())),
-                        Plan::Leaf(Tactic::RunRuleset("snitch".into())),
-                    ]),
-                    Plan::Leaf(Tactic::RunRuleset(Symbol::from("eq"))),
-                    Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold"))),
+                    Plan::Leaf(Tactic::RunRuleset("width".into())),
+                    Plan::Leaf(Tactic::RunRuleset("snitch".into())),
                 ]),
-                Plan::Leaf(Tactic::RunRuleset(Symbol::from("safe"))),
+                Plan::Leaf(Tactic::RunRuleset(Symbol::from("eq"))),
+                Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold"))),
             ]),
-            Plan::Leaf(Tactic::RunLinSolve),
+            Plan::Leaf(Tactic::RunRuleset(Symbol::from("safe"))),
         ]);
 
-        let unsafe_block = Plan::Seq(vec![
-            Plan::Leaf(Tactic::MineHypothesis),
-            Plan::Leaf(Tactic::RunSMTSolveOne),
+        if use_linsolve {
+            safe_block = Plan::Saturate(vec![safe_block, Plan::Leaf(Tactic::RunLinSolve)]);
+        }
+
+        let mut unsafe_block_seq = vec![
             Plan::Repeat(
                 vec![
                     Plan::Leaf(Tactic::RunRuleset(Symbol::from("slow"))),
                     safe_block.clone(),
                 ],
-                3,
+                inner_iterations,
             ),
             Plan::Leaf(Tactic::RunRuleset(Symbol::from("explosive"))),
             safe_block.clone(),
-        ]);
+        ];
 
-        let repeat_block = Plan::Repeat(vec![unsafe_block], 5);
+        if use_smt {
+            unsafe_block_seq.insert(0, Plan::Leaf(Tactic::MineHypothesis));
+            unsafe_block_seq.insert(1, Plan::Leaf(Tactic::RunSMTSolveOne));
+        }
+
+        let unsafe_block = Plan::Seq(unsafe_block_seq);
+
+        let repeat_block = Plan::Repeat(vec![unsafe_block], outer_iterations);
 
         // Optionally wrap the repeat block in a timeout
         let repeat_block = if let Some(timeout) = timeout {
@@ -383,7 +395,16 @@ impl Context {
         self.text("### Running `(check-sat)`")?;
         self.newline()?;
 
-        let plan = self.check_sat_plan.clone();
+        let plan = self.custom_check_sat_plan.to_owned().unwrap_or_else(|| {
+            Plan::check_sat_default(
+                self.outer_iterations,
+                self.inner_iterations,
+                self.use_linear_solver,
+                self.use_bitblasting_solver,
+                self.check_sat_timeout,
+            )
+        });
+
         let mut report = RunReport::default();
         let status = match self.check_sat_using_plan(&plan, None, &mut report) {
             Ok(_) | Err(PlanError::Timeout) => SATStatus::Unknown,

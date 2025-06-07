@@ -395,6 +395,13 @@ impl Context {
         self.text("### Running `(check-sat)`")?;
         self.newline()?;
 
+        if self.rewriting_history.is_some() {
+            let serialized = self.serialize()?;
+            if let Some(history) = &mut self.rewriting_history {
+                history.push(serialized);
+            }
+        }
+
         let plan = self.custom_check_sat_plan.to_owned().unwrap_or_else(|| {
             Plan::check_sat_default(
                 self.outer_iterations,

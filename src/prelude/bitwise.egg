@@ -38,12 +38,6 @@
 
 (rule ((= (Not x) y)) ((union x (Not y))) :ruleset fold)
 
-; ### Pushing constant booleans through And
-
-(rule ((= (BvAll true w) (And a b)) (= w (Width a)))
-      ((union (And a b) a) (union (And a b) b) (subsume (And a b)))
-      :ruleset fold)
-
 ; ### `AIG` simplifications
 
 ; These rewrite rules are taken from

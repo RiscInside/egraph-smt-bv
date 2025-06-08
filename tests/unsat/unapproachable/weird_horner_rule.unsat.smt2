@@ -3,8 +3,6 @@
 (declare-const a1 (_ BitVec 256))
 (declare-const a2 (_ BitVec 256))
 
-(set-option :timeout 20000)
-
 (assert
   (distinct
     (bvadd a0

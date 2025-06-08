@@ -96,6 +96,16 @@ impl Plan {
             safe_block = Plan::Saturate(vec![safe_block, Plan::Leaf(Tactic::RunLinSolve)]);
         }
 
+        // Block for if simplifications
+        let if_simplifications = Plan::Seq(vec![
+            Plan::Saturate(vec![Plan::Leaf(Tactic::RunRuleset("depends".into()))]),
+            Plan::Saturate(vec![
+                Plan::Leaf(Tactic::RunRuleset("assume".into())),
+                safe_block.clone(),
+            ]),
+            Plan::Saturate(vec![Plan::Leaf(Tactic::RunRuleset("post-assume".into()))]),
+        ]);
+
         let mut unsafe_block_seq = vec![
             Plan::Repeat(
                 vec![
@@ -127,6 +137,7 @@ impl Plan {
         Plan::Seq(vec![
             saturate_first,
             Plan::Saturate(vec![Plan::Leaf(Tactic::RunRuleset("snitch".into()))]),
+            if_simplifications,
             run_once,
             repeat_block,
         ])
@@ -298,9 +309,14 @@ impl Context {
 
                 if updated && self.rewriting_history.is_some() {
                     let serialized = self.serialize()?;
-                    if let Some(history) = &mut self.rewriting_history {
-                        history.push(serialized);
-                    }
+                    let history = self.rewriting_history.as_mut().unwrap();
+                    history.push(serialized);
+
+                    let position = history.len() - 1;
+                    self.text(&format!(
+                        "Pushed a new e-graph to history (position {})",
+                        position
+                    ))?;
                 }
 
                 self.check_for_unsat()?;

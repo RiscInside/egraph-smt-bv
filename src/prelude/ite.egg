@@ -13,29 +13,162 @@
 
 (rewrite (ITE cond tt ff) cond :subsume :ruleset fold)
 
-; ### Pushdown rules for operators
+; ### Inverted if-then-else
 
-(rewrite (ITE cond (Not e1) (Not e2)) (Not (ITE cond e1 e2)) :ruleset slow)
+(rewrite (ITE (Not cond) a b) (ITE cond b a) :ruleset safe)
 
-(rewrite (ITE cond (And e1 e2) (And e3 e4))
-         (And (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset slow)
+; ### ITE propogation rulesets
+;
+; ITE propogation rulesets run early to find all opportunities for if-then-else simplifications until
+; the e-graph hasn't yet blown up out of proportion.
 
-(rewrite (ITE cond (Add e1 e2) (Add e3 e4))
-         (Add (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset slow)
+(ruleset depends)
+(ruleset assume)
+(ruleset post-assume)
 
-(rewrite (ITE cond (Mul e1 e2) (Mul e3 e4))
-         (Mul (ITE cond e1 e3) (ITE cond e2 e4)) :ruleset slow)
+; ### `DependsOn` relation
 
-(rewrite (ITE cond (Concat e1 e2) (Concat e3 e4))
-         (Concat (ITE cond e1 e3) (ITE cond e2 e4))
-         :when ((= (Width e1) (Width e3))) :ruleset slow)
+; `(DependsOn x y)` holds when `y` is used in computation of `x`.
 
-; #### Nested if-then-else
+(relation DependsOn (V V))
 
-(rewrite (ITE cond (ITE cond x y) z) (ITE cond x z) :subsume :ruleset fold)
-(rewrite (ITE cond x (ITE cond y z)) (ITE cond x y) :subsume :ruleset fold)
+; Base cases
 
-; #### More general version
+(rule ((Width e)) ((DependsOn e e)) :ruleset depends)
+(rule ((==> c1 c) (DependsOn e c)) ((DependsOn e c1)) :ruleset depends)
+(rule ((= c (Equal x y)) (DependsOn e x)) ((DependsOn e c)) :ruleset depends)
+
+; This is then propogated downwards through operators
+
+(rule ((DependsOn e (Not e1))) ((DependsOn e e1)) :ruleset depends)
+(rule ((DependsOn e (Implies e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (And e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (Or e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (Xor e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (ITE e1 e2 e3))) ((DependsOn e e1) (DependsOn e e2) (DependsOn e e3)) :ruleset depends)
+(rule ((DependsOn e (Concat e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (Extract i j e1))) ((DependsOn e e1)) :ruleset depends)
+(rule ((DependsOn e (SignExtend w e1))) ((DependsOn e e1)) :ruleset depends)
+(rule ((DependsOn e (Add e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (Mul e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (UDiv e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (URem e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (SDiv e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (SRem e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (Shl e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (LShr e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (AShr e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (Sgt e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (Sge e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (Ugt e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+(rule ((DependsOn e (Uge e1 e2))) ((DependsOn e e1) (DependsOn e e2)) :ruleset depends)
+
+; ### `Assume`
+
+; `Assume` is an alternative flavour of assume nodes. `(Assume c e)` is an expression
+; that is equal to `e` under assumption `c`.
+;
+; Note that the sort of `(Assume c e)` isn't `V`. This is intentional - `(Assume c e)`
+; isn't a normal expression, but rather a quick way to look up other expressions
+; equivalent under `c`.
+
+(sort AV)
+(constructor Assume (V V) AV)
+
+; ### Introduction of `Assume` nodes
+
+; We introduce an `Assume` node for an e-class `e` whenever `e` depends on condition used in ITE.
+
+(rule ((ITE c t o) (DependsOn e c)) ((Assume c e)) :ruleset assume)
+(rule ((ITE c t o) (DependsOn e c)) ((Assume (Not c) e)) :ruleset assume)
+
+; ### ITE equivalences
+
+(rule ((= e (Assume c (ITE c t o)))) ((union e (Assume c t))) :ruleset assume)
+(rule ((= e (Assume c (ITE c t o)))) ((union e (Assume c o))) :ruleset assume)
+
+; ### Building conditional equivalence bottom-up 
+
+(rule ((= e1 (Assume c (Not x1))) (= e2 (Not x2)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Implies x1 y))) (= e2 (Implies x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Implies x y1))) (= e2 (Implies x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Implies x1 y1))) (= e2 (Implies x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (And x1 y))) (= e2 (And x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (And x y1))) (= e2 (And x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (And x1 y1))) (= e2 (And x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Or x1 y))) (= e2 (Or x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Or x y1))) (= e2 (Or x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Or x1 y1))) (= e2 (Or x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Xor x1 y))) (= e2 (Xor x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Xor x y1))) (= e2 (Xor x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Xor x1 y1))) (= e2 (Xor x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Concat x1 y))) (= e2 (Concat x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Concat x y1))) (= e2 (Concat x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Concat x1 y1))) (= e2 (Concat x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Extract i j x1))) (= e2 (Extract i j x2)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (SignExtend w x1))) (= e2 (SignExtend w x2)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Add x1 y))) (= e2 (Add x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Add x y1))) (= e2 (Add x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Add x1 y1))) (= e2 (Add x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Mul x1 y))) (= e2 (Mul x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Mul x y1))) (= e2 (Mul x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Mul x1 y1))) (= e2 (Mul x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (UDiv x1 y))) (= e2 (UDiv x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (UDiv x y1))) (= e2 (UDiv x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (UDiv x1 y1))) (= e2 (UDiv x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (URem x1 y))) (= e2 (URem x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (URem x y1))) (= e2 (URem x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (URem x1 y1))) (= e2 (URem x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (SDiv x1 y))) (= e2 (SDiv x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (SDiv x y1))) (= e2 (SDiv x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (SDiv x1 y1))) (= e2 (SDiv x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (SRem x1 y))) (= e2 (SRem x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (SRem x y1))) (= e2 (SRem x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (SRem x1 y1))) (= e2 (SRem x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Shl x1 y))) (= e2 (Shl x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Shl x y1))) (= e2 (Shl x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Shl x1 y1))) (= e2 (Shl x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (LShr x1 y))) (= e2 (LShr x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (LShr x y1))) (= e2 (LShr x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (LShr x1 y1))) (= e2 (LShr x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (AShr x1 y))) (= e2 (AShr x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (AShr x y1))) (= e2 (AShr x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (AShr x1 y1))) (= e2 (AShr x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Sgt x1 y))) (= e2 (Sgt x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Sgt x y1))) (= e2 (Sgt x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Sgt x1 y1))) (= e2 (Sgt x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Sge x1 y))) (= e2 (Sge x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Sge x y1))) (= e2 (Sge x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Sge x1 y1))) (= e2 (Sge x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Ugt x1 y))) (= e2 (Ugt x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Ugt x y1))) (= e2 (Ugt x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Ugt x1 y1))) (= e2 (Ugt x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Uge x1 y))) (= e2 (Uge x2 y)) (= (Assume c x1) (Assume c x2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Uge x y1))) (= e2 (Uge x y2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+(rule ((= e1 (Assume c (Uge x1 y1))) (= e2 (Uge x2 y2)) (= (Assume c x1) (Assume c x2)) (= (Assume c y1) (Assume c y2))) ((union e1 (Assume c e2))) :ruleset assume)
+
+; ### Replacing boolean values
+
+(rewrite (Assume c c) (Assume c tt) :ruleset fold)
+(rewrite (Assume c (Not c)) (Assume c ff) :ruleset fold)
+(rewrite (Assume cond c) (Assume cond tt) :when ((==> cond c)) :ruleset safe)
+(rewrite (Assume cond c) (Assume cond ff) :when ((==> cond (Not c))) :ruleset safe)
+
+; ### Making use of equality assertions
+
+(rewrite (Assume (Equal x y) x) (Assume (Equal x y) y) :ruleset safe)
+(rewrite (Assume cond x) (Assume cond y) :when ((==> cond (Equal x y))) :ruleset safe)
+
+; ### Recovering unconditional equality
+
+(rule ((= (Assume c x) (Assume c y)) (= (Assume (Not c) x) (Assume (Not c) y))) ((union x y)) :ruleset safe)
+
+; ### Post asssume/depends cleanup
+
+(rule ((Assume c e)) ((delete (Assume c e))) :ruleset post-assume)
+(rule ((DependsOn e c)) ((delete (DependsOn e c))) :ruleset post-assume)
+
+; ### Switching condition to `Or`
 
 (rewrite (ITE a (ITE b x y) x) (ITE (Or a b) x y) :ruleset slow)
 (rewrite (ITE a x (ITE b x y)) (ITE (Or a b) x y) :ruleset slow)

@@ -48,8 +48,12 @@ impl Context {
             ))])?;
 
         let mut serialized = self.egraph.serialize(SerializeConfig::default());
-        serialized.split_classes(|_, node| node.op == "true" || node.op == "false");
+        serialized.split_classes(|node_id, _| {
+            node_id.as_ref().starts_with("primitive--bool")
+                || node_id.as_ref().starts_with("primitive-i64")
+        });
         serialized.saturate_inline_leaves();
+
         self.egraph.pop().unwrap();
 
         Ok(serialized)

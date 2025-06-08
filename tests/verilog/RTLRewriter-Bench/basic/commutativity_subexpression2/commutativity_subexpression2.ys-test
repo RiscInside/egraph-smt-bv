@@ -1,0 +1,16 @@
+read_verilog optimized.v
+read_verilog unoptimized.v
+read_verilog rtl_coder_attempt.v
+read_verilog claude3_attempt.v
+read_verilog gpt4_attempt.v
+hierarchy
+memory
+proc
+miter -equiv -make_assert optimized unoptimized miter1
+miter -equiv -make_assert optimized gpt4_attempt miter2
+miter -equiv -make_assert optimized claude3_attempt miter3
+
+# actually different (z3 returns sat after 17 seconds)
+# miter -equiv -make_assert optimized rtl_coder_attempt miter4
+
+write_smt2 -tpl ../../../three_miters.tpl -stbv commutativity_subexpression2.generated.unsat.smt2

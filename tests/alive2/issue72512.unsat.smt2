@@ -1,0 +1,21 @@
+; Alive2 compiler optimization refinement query
+; More info in "Alive2: Bounded Translation Validation for LLVM", PLDI'21.
+(set-info :status unknown)
+(declare-fun %b () (_ BitVec 32))
+(declare-fun %a () (_ BitVec 32))
+(declare-fun np_%b () Bool)
+(declare-fun np_%a () Bool)
+(declare-fun isundef_%b () (_ BitVec 1))
+(declare-fun isundef_%a () (_ BitVec 1))
+(assert
+ (let (($x26 (= %a %b)))
+(let ((?x17 (bvadd (_ bv1 32) %a)))
+(let ((?x20 (bvadd ?x17 (bvmul %b (_ bv4294967295 32)))))
+(let (($x25 (= (_ bv1 32) ?x20)))
+(let (($x34 (or (not (and np_%a np_%b)) (= $x25 $x26))))
+(let (($x31 (not $x34)))
+(let (($x15 (= (_ bv0 1) isundef_%b)))
+(let (($x11 (= (_ bv0 1) isundef_%a)))
+(let (($x24 (and $x11 $x15)))
+(and $x24 $x31)))))))))))
+(check-sat)

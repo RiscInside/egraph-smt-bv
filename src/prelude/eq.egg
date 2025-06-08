@@ -43,3 +43,9 @@
 ; ### Removing redundant Eq e-nodes
 
 (rule ((= tt (Equal v v))) ((delete (Equal v v))) :ruleset fold)
+
+; ### Replacing equality with equality with 0
+
+; This allows linear solver to equate different ways of checking for equality.
+
+(rewrite (Equal a b) (Equal (BvConst __0 w) (Add a (Neg b))) :when ((!= b (BvConst __0 w)) (!= a (BvConst __0 w)) (= w (Width a))) :ruleset slow)

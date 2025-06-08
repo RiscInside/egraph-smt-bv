@@ -137,6 +137,7 @@ impl Plan {
         Plan::Seq(vec![
             saturate_first,
             Plan::Saturate(vec![Plan::Leaf(Tactic::RunRuleset("snitch".into()))]),
+            safe_block,
             if_simplifications,
             run_once,
             repeat_block,

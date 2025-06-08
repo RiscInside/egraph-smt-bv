@@ -35,7 +35,17 @@
 (rewrite (Mul (Neg a) (Neg b)) (Mul a b) :ruleset fold)
 
 ; ### Shift-like Concat into Mul
+
 (rewrite (Concat (Extract (- w (+ shift 1)) 0 a) (BvAll false shift)) (Mul a (BvConst (i64-shl __1 shift w) w)) :when ((= w (Width a))) :ruleset slow)
+
+; The rule below is used to recognise some forms of x << N in yosys. Yosys would often replace shifts with concat of extract
+; and zeroes, and, since this extract just goes to the circuit's state bit-vector variable, it would be impossible to pick
+; up on it otherwise.
+
+(rule ((= lhs (Concat (Extract i j s) (BvAll false shift)))
+       (= rhs (Extract (+ i shift) j s))
+       (= w (Width lhs)))
+       ((union lhs (Mul rhs (BvConst (i64-shl __1 shift w) w)))) :ruleset slow)
 
 ; ### Converting if-then-else into 1 bit multiplication
 

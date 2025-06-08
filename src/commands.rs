@@ -186,7 +186,11 @@ impl Context {
                     vec![res.clone()],
                     lit!(width.get() as i64),
                 )]),
-                body: vec![GenericFact::Eq(span!(), res.clone(), call!(name, args))],
+                body: vec![GenericFact::Eq(
+                    span!(),
+                    res.clone(),
+                    call!(egglog_name, args),
+                )],
             },
         });
 
@@ -217,12 +221,16 @@ impl Context {
                             ),
                         ),
                     ]),
-                    body: vec![GenericFact::Eq(span!(), res.clone(), call!(name, []))],
+                    body: vec![GenericFact::Eq(
+                        span!(),
+                        res.clone(),
+                        call!(egglog_name, []),
+                    )],
                 },
             });
         }
 
-        self.text(&format!("### Declaration of `{name}`"))?;
+        self.text(&format!("### Declaration of `{name}` (`{egglog_name}`"))?;
         self.newline()?;
         self.run_cmds(commands)?;
         self.newline()?;
@@ -449,7 +457,7 @@ impl Context {
             Pop { .. } | Push { .. } => bail!("push/pop aren't supported"),
             Reset => bail!("reset isn't supported"),
             ResetAssertions => bail!("reset-assertions isn't supported"),
-            SetInfo { .. } => bail!("set-info isn't supported"),
+            SetInfo { .. } => Ok(()),
             SetLogic { symbol } => {
                 if symbol.0 != "QF_BV" && symbol.0 != "QF_UFBV" {
                     bail!("Unsupported logic {}", symbol.0);

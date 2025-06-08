@@ -1,0 +1,12 @@
+read_verilog optimized.v
+read_verilog unoptimized.v
+read_verilog ours.v
+read_verilog gpt4_attempt.v
+hierarchy
+memory
+proc
+miter -equiv -make_assert optimized gpt4_attempt miter1
+miter -equiv -make_assert optimized gpt4_attempt miter2
+miter -equiv -make_assert optimized ours miter3
+
+write_smt2 -tpl ../../../three_miters.tpl -stbv multi_constant_multiplication.generated.unsat.smt2

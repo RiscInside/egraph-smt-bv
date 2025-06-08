@@ -1,0 +1,9 @@
+read_verilog optimized.v
+read_verilog unoptimized.v
+read_verilog ours.v
+hierarchy
+memory
+proc
+miter -equiv -make_assert optimized unoptimized miter1
+miter -equiv -make_assert optimized ours miter2
+write_smt2 -tpl ../../../two_miters.tpl -stbv multi_constant_multiplication2.generated.unsat.smt2

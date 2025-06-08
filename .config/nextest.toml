@@ -1,0 +1,2 @@
+[profile.ci]
+default-filter = '!test(~.unknown)'

@@ -36,7 +36,7 @@ jobs:
       uses: taiki-e/install-action@nextest
     
     - name: Run nextest
-      run: cargo nextest run --no-fail-fast -j 1 --release
+      run: cargo nextest run --no-fail-fast -j 1 --release --profile=ci
 
     - name: Run rustfmt
       uses: actions-rust-lang/rustfmt@v1

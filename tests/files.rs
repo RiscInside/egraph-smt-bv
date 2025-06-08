@@ -11,8 +11,10 @@ use std::{
 };
 struct AssertExactStatus(SATStatus);
 
+const DEFAULT_CAP: usize = 2048 * 1024 * 1024;
+
 #[global_allocator]
-static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, 1024 * 1024 * 1024);
+static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, DEFAULT_CAP);
 
 impl LogStream for AssertExactStatus {
     fn check_sat_status(&mut self, status: SATStatus) -> anyhow::Result<()> {

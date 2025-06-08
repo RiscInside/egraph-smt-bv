@@ -60,9 +60,7 @@
 
 (rewrite (Add a b) (Xor a b) :when ((= (Width a) 1)) :ruleset fold)
 
-; The rule below does one half-adder step. It is highly explosive, so it goes into `once` ruleset - it is unlikely we will get a lot from applying it more than once.
-
-(rewrite (Add a b) (Add (Xor a b) (Concat (Extract (- w 2) 0 (And a b)) (BvAll false 1))) :when ((= w (Width a)) (> w 1)) :ruleset once)
+(rewrite (Add a b) (Add (Xor a b) (Concat (Extract (- w 2) 0 (And a b)) (BvAll false 1))) :when ((= w (Width a)) (> w 1)) :ruleset explosive)
 
 ; ### Recovering equivalences from Add
 

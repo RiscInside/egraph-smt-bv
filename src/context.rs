@@ -30,12 +30,22 @@ pub struct Context {
     pub(crate) smt2contexts: Vec<smt2lib::Context>,
     /// Assertions count
     pub(crate) asserts_so_far: usize,
-    /// Default plan for the `check-sat` command
-    pub(crate) check_sat_plan: Plan,
+    /// Custom plan for the check-sat, if set
+    pub(crate) custom_check_sat_plan: Option<Plan>,
     /// E-graph rewriting history
     pub(crate) rewriting_history: Option<Vec<egraph_serialize::EGraph>>,
     /// True if functions should be kept in the e-graph
     pub(crate) keep_functions: bool,
+    /// True if bit-blasting subs-solver be enabled
+    pub(crate) use_bitblasting_solver: bool,
+    /// True if bit-blasting subs-solver be enabled
+    pub(crate) use_linear_solver: bool,
+    /// Timeout in milliseconds for check-sat
+    pub(crate) check_sat_timeout: Option<std::time::Duration>,
+    /// Slow iteration count in the default check-sat-plan
+    pub(crate) inner_iterations: usize,
+    /// Fast iteration count in the default check-sat-plan
+    pub(crate) outer_iterations: usize,
     /// Native solver amalgamation
     pub(crate) solvers: Arc<Mutex<Solvers>>,
 }
@@ -93,24 +103,44 @@ impl Context {
             sinks: LogSink::new(),
             smt2contexts: vec![smt2lib::Context::new()],
             asserts_so_far: 0,
-            check_sat_plan: Plan::check_sat_default(None),
+            custom_check_sat_plan: None,
             keep_functions: false,
+            use_bitblasting_solver: false,
+            use_linear_solver: true,
+            check_sat_timeout: None,
             rewriting_history: None,
+            outer_iterations: 5,
+            inner_iterations: 3,
             solvers,
         }
     }
 
-    pub fn keep_functions(&mut self) {
-        self.keep_functions = true;
+    pub fn keep_functions(&mut self, value: bool) {
+        self.keep_functions = value;
+    }
+
+    pub fn use_bitblasting_solver(&mut self, value: bool) {
+        self.use_bitblasting_solver = value;
+    }
+
+    pub fn use_linear_solver(&mut self, value: bool) {
+        self.use_linear_solver = value;
+    }
+
+    pub fn set_outer_iterations_count(&mut self, iters: usize) {
+        self.outer_iterations = iters;
+    }
+
+    pub fn set_inner_iterations_count(&mut self, iters: usize) {
+        self.inner_iterations = iters;
     }
 
     pub fn enable_history_collection(&mut self) {
         self.rewriting_history = Some(vec![]);
     }
 
-    pub fn add_timeout(&mut self, duration: std::time::Duration) {
-        let plan = std::mem::replace(&mut self.check_sat_plan, Plan::Seq(vec![]));
-        self.check_sat_plan = Plan::Timeout(vec![plan], duration);
+    pub fn set_timeout(&mut self, duration: std::time::Duration) {
+        self.check_sat_timeout = Some(duration);
     }
 
     pub fn add_egglog_sink(&mut self, path: &std::path::Path) -> anyhow::Result<()> {

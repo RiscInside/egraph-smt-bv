@@ -1,4 +1,4 @@
-use std::num::NonZero;
+use std::{num::NonZero, time::Duration};
 
 use anyhow::bail;
 use egglog::{
@@ -9,7 +9,7 @@ use egglog::{
     span,
 };
 use smt2parser::{
-    concrete::{self, SExpr},
+    concrete::{self, Constant, SExpr},
     visitors::AttributeValue,
 };
 
@@ -349,10 +349,60 @@ impl Context {
     ) -> anyhow::Result<()> {
         match (keyword, value) {
             ("plan", AttributeValue::SExpr(sexprs)) => {
-                self.check_sat_plan = Plan::parse(&SExpr::Application(sexprs.clone()))?;
+                self.custom_check_sat_plan =
+                    Some(Plan::parse(&SExpr::Application(sexprs.clone()))?);
                 Ok(())
             }
             ("plan", _) => bail!("Expected plan to be an S-expression"),
+
+            ("blast-solver", AttributeValue::Symbol(symbol)) if symbol.0.as_str() == "true" => {
+                self.use_bitblasting_solver = true;
+                Ok(())
+            }
+            ("blast-solver", AttributeValue::Symbol(symbol)) if symbol.0.as_str() == "false" => {
+                self.use_bitblasting_solver = false;
+                Ok(())
+            }
+            ("blast-solver", _) => bail!("Expected a boolean argument to `blast-solver`"),
+
+            ("linear-solver", AttributeValue::Symbol(symbol)) if symbol.0.as_str() == "true" => {
+                self.use_linear_solver = true;
+                Ok(())
+            }
+            ("linear-solver", AttributeValue::Symbol(symbol)) if symbol.0.as_str() == "false" => {
+                self.use_linear_solver = false;
+                Ok(())
+            }
+            ("linear-solver", _) => bail!("Expected a boolean argument to `linear-solver`"),
+
+            ("keep-functions", AttributeValue::Symbol(symbol)) if symbol.0.as_str() == "true" => {
+                self.keep_functions = true;
+                Ok(())
+            }
+            ("keep-functions", AttributeValue::Symbol(symbol)) if symbol.0.as_str() == "false" => {
+                self.keep_functions = false;
+                Ok(())
+            }
+            ("keep-functions", _) => bail!("Expected a boolean argument to `keep-functions`"),
+
+            ("timeout", AttributeValue::Constant(Constant::Numeral(val))) => {
+                self.check_sat_timeout = Some(Duration::from_millis(val.try_into()?));
+                Ok(())
+            }
+            ("timeout", _) => bail!("Expected an integer argument to `timeout`"),
+
+            ("outer-iters", AttributeValue::Constant(Constant::Numeral(val))) => {
+                self.outer_iterations = val.try_into()?;
+                Ok(())
+            }
+            ("outer-iters", _) => bail!("Expected an integer argument to `outer-iters`"),
+
+            ("inner-iters", AttributeValue::Constant(Constant::Numeral(val))) => {
+                self.inner_iterations = val.try_into()?;
+                Ok(())
+            }
+            ("inner-iters", _) => bail!("Expected an integer argument to `inner-iters`"),
+
             _ => bail!("Unsupported option {keyword}"),
         }
     }

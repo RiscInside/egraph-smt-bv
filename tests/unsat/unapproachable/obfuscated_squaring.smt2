@@ -1,6 +1,11 @@
 ; https://stackoverflow.com/questions/66001975/can-z3-apply-bit-width-reduction-techniques-to-solve-a-bit-vector-equivalence
 
+
 (set-logic QF_BV)
+
+; Defer to z3 on a (bvxor a!1 x) = y subproblem.
+(set-option :blast-solver true)
+
 (declare-fun y () (_ BitVec 64))
 (declare-fun x () (_ BitVec 64))
 (assert (let ((a!1 (bvsub (bvsub (bvsub x #x0000000000000002) y)

@@ -52,7 +52,7 @@ impl Context {
             node_id.as_ref().starts_with("primitive--bool")
                 || node_id.as_ref().starts_with("primitive-i64")
         });
-        serialized.saturate_inline_leaves();
+        serialized.inline_leaves();
 
         self.egraph.pop().unwrap();
 

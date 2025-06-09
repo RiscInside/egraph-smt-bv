@@ -21,6 +21,7 @@ fn prelude_logbook() -> Log {
         .followed_by(embed!("prelude/comparisons.egg").wrap_in_details())
         .followed_by(embed!("prelude/mul.egg").wrap_in_details())
         .followed_by(embed!("prelude/div.egg").wrap_in_details())
+        .followed_by(embed!("prelude/ranges.egg").wrap_in_details())
         .followed_by(embed!("prelude/ite.egg").wrap_in_details())
         .followed_by(embed!("prelude/bpnf.egg").wrap_in_details())
         .followed_by(embed!("prelude/solvers.egg").wrap_in_details())

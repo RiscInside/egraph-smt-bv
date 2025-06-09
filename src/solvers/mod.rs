@@ -21,11 +21,13 @@ type Width = u64;
 mod slice;
 
 pub(crate) mod bvconst;
+pub(crate) mod bvrange;
 pub(crate) mod linsolve2;
 pub(crate) mod proxy;
 pub(crate) mod simulator2;
 
 use bvconst::{BvConstSort, BvConstTable};
+use bvrange::{BvRangeSort, BvRangeTable};
 use num_bigint::BigUint;
 use proxy::ProxySort;
 use simulator2::{Operation, SimulationCore};
@@ -66,6 +68,8 @@ pub(crate) struct Solvers {
     v_sort: ArcSort,
     /// Table of bitvector constants
     pub(crate) bv_constants_index: BvConstTable,
+    /// Table of bitvector ranges
+    pub(crate) bv_ranges_index: BvRangeTable,
     /// Symbol for "V"
     pub(crate) v_symbol: Symbol,
 }
@@ -84,12 +88,18 @@ impl Solvers {
             sim_core: SimulationCore::default(),
             v_sort: v_sort.clone(),
             bv_constants_index: Default::default(),
+            bv_ranges_index: Default::default(),
             v_symbol: "V".into(),
         }));
 
         egraph
             .add_arcsort(Arc::new(BvConstSort::new(solver.clone())), span!())
             .context("Adding bit-vector constant sort")
+            .unwrap();
+
+        egraph
+            .add_arcsort(Arc::new(BvRangeSort::new(solver.clone())), span!())
+            .context("Adding bit-vector range sort")
             .unwrap();
 
         egraph

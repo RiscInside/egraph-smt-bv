@@ -87,7 +87,7 @@ impl Plan {
                     Plan::Leaf(Tactic::RunRuleset("snitch".into())),
                 ]),
                 Plan::Leaf(Tactic::RunRuleset(Symbol::from("eq"))),
-                Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold"))),
+                Plan::Delta(vec![Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold")))]),
             ]),
             Plan::Leaf(Tactic::RunRuleset(Symbol::from("safe"))),
         ]);

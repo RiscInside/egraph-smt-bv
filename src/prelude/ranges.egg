@@ -1,0 +1,91 @@
+; <summary>ranges.egg - range propagation</summary>
+
+; ### RangeOf
+
+; `RangeOf` is a function that tracks bit-vector ranges for every value.
+
+(function RangeOf (V) BvRangeSort :merge (bvrange-merge old new))
+
+; ### Everything has a range
+
+(rule ((= w (Width e))) ((set (RangeOf e) (bvrange-full w))) :ruleset fold)
+
+; ### Range refinements using operators
+
+(rule ((= r1 (RangeOf e1)) (= r2 (RangeOf e2)) (= e (Add e1 e2)) (= r (bvrange-add r1 r2))) ((set (RangeOf e) r)) :ruleset fold)
+(rule ((= r1 (RangeOf e1)) (= r2 (RangeOf e2)) (= e (Mul e1 e2)) (= r (bvrange-mul r1 r2))) ((set (RangeOf e) r)) :ruleset fold)
+(rule ((= r1 (RangeOf e1)) (= r2 (RangeOf e2)) (= e (And e1 e2)) (= r (bvrange-and r1 r2))) ((set (RangeOf e) r)) :ruleset fold)
+(rule ((= r1 (RangeOf e1)) (= r2 (RangeOf e2)) (= e (Or e1 e2)) (= r (bvrange-or r1 r2))) ((set (RangeOf e) r)) :ruleset fold)
+(rule ((= r1 (RangeOf e1)) (= e (Neg e1)) (= r (bvrange-neg r1))) ((set (RangeOf e) r)) :ruleset fold)
+(rule ((= r1 (RangeOf e1)) (= e (ZeroExtend w e1)) (= r (bvrange-zero-ext r1 w))) ((set (RangeOf e) r)) :ruleset fold)
+(rule ((= r1 (RangeOf e1)) (= e (BvConst c w))) ((set (RangeOf e) (bvrange-const w c))) :ruleset fold)
+
+; ### Eliminating extract/zero-extend pair
+
+(rule ((= r (RangeOf e)) (bvrange-fits-in r (+ bits 1))
+       (= e2 (Extract bits 0 (ZeroExtend _ e))) (= (Width e) (Width e2)))
+      ((union e e2)) :ruleset fold)
+
+; ### Collapsing range to a constant
+
+(rule ((= w (Width e)) (= r (RangeOf e)) (= c (bvrange-try-get-constant r))) ((union e (BvConst c w))) :ruleset fold)
+
+; ### Refinement based on inequalities
+
+(rule ((= tt (Ule e1 e2)) (= r1 (RangeOf e1)) (= r2 (RangeOf e2)))
+      ((set (RangeOf e1) (bvrange-refine-ule r1 r2))
+       (set (RangeOf e2) (bvrange-refine-ugt r2 r1))) :ruleset fold)
+
+(rule ((= tt (Ult e1 e2)) (= r1 (RangeOf e1)) (= r2 (RangeOf e2)))
+      ((set (RangeOf e1) (bvrange-refine-ult r1 r2))
+       (set (RangeOf e2) (bvrange-refine-uge r2 r1))) :ruleset fold)
+
+; ### Contradiction from ranges
+
+(rule ((= r (RangeOf e)) (bvrange-empty r)) ((set (ProvenUnsat) true)) :ruleset fold)
+
+; ### ToRange helper
+
+(constructor ToRange (V BvRangeSort) V)
+
+(rule ((= r (RangeOf e))) ((union e (ToRange e r))) :ruleset vis)
+
+; ### Equality up to a Width
+
+; `InfWide` is a bit-vector zero-extended to infinity.
+
+(sort InfV)
+(constructor InfWide (V) InfV)
+
+(constructor InfAnd (InfV InfV) InfV)
+(constructor InfOr (InfV InfV) InfV)
+(constructor InfXor (InfV InfV) InfV)
+(constructor InfAdd (InfV InfV) InfV)
+(constructor InfMul (InfV InfV) InfV)
+(constructor InfITE (V InfV InfV) InfV)
+
+; Every bit-vector gets an `InfWide`.
+(rule ((Width e)) ((InfWide e)) :ruleset fold)
+
+; Two bit-vector constants of different bit-widths have their infinitely-wide versions equality
+
+(rule ((= e1 (BvConst c w1)) (= e2 (BvConst c w2))) ((union (InfWide e1) (InfWide e2))))
+
+; Zero-extension's `InfWide` is equal to that of the operand
+
+(rule ((= e (ZeroExtend w e1))) ((union (InfWide e) (InfWide e1))) :ruleset fold)
+
+; `InfWide` equality goes through (some) operations. We implement this equality by creating e-nodes that perform infinitely-wide
+; operations.
+
+(rewrite (InfWide (Add e1 e2)) (InfAdd (InfWide e1) (InfWide e2)) :when ((bvrange-no-add-ovf (RangeOf e1) (RangeOf e2))) :ruleset safe)
+(rewrite (InfWide (Mul e1 e2)) (InfMul (InfWide e1) (InfWide e2)) :when ((bvrange-no-mul-ovf (RangeOf e1) (RangeOf e2))) :ruleset safe)
+(rewrite (InfWide (And e1 e2)) (InfAnd (InfWide e1) (InfWide e2)) :ruleset safe)
+(rewrite (InfWide (Or e1 e2)) (InfOr (InfWide e1) (InfWide e2)) :ruleset safe)
+(rewrite (InfWide (Xor e1 e2)) (InfXor (InfWide e1) (InfWide e2)) :ruleset safe)
+(rewrite (InfWide (ITE c t o)) (InfITE c (InfWide t) (InfWide o)) :ruleset safe)
+
+; If two `InfWide` values have the same width, they are equal
+
+(rule ((= (InfWide e1) (InfWide e2)) (= (Width e1) (Width e2))) ((union e1 e2)) :ruleset fold)
+

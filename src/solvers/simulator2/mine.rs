@@ -118,6 +118,20 @@ impl<V: Variable> SimulationCore<V> {
                             }
                         }
                         Operation::AShr => todo!(),
+                        Operation::UDiv => {
+                            if inputs[1].bits() == 0 {
+                                ((BigUint::from(1u32)) << node.width) - BigUint::from(1u32)
+                            } else {
+                                inputs[0] / inputs[1]
+                            }
+                        }
+                        Operation::URem => {
+                            if inputs[1].bits() == 0 {
+                                BigUint::from(0u32)
+                            } else {
+                                inputs[0] % inputs[1]
+                            }
+                        }
                     }
                 }
                 Recipe::Slice(slice) => {

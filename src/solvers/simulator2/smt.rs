@@ -114,6 +114,8 @@ impl<'ctx, 'dag, V: Variable> DagSolveContext<'ctx, '_, 'dag, V> {
                         Operation::Shl => inputs[0].bvshl(&inputs[1]),
                         Operation::LShr => inputs[0].bvlshr(&inputs[1]),
                         Operation::AShr => inputs[0].bvashr(&inputs[1]),
+                        Operation::UDiv => inputs[0].bvudiv(&inputs[1]),
+                        Operation::URem => inputs[0].bvurem(&inputs[1]),
                     }
                 }
                 Recipe::Slice(slice) => {

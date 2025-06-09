@@ -74,6 +74,12 @@
 (rule ((= e (AShr e1 e2)) (VProxy e1) (VProxy e2) (= w (Width e1)))
     ((solvers-ashr e1 e2 e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
 
+(rule ((= e (UDiv e1 e2)) (VProxy e1) (VProxy e2) (= w (Width e1)))
+    ((solvers-udiv e1 e2 e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
+
+(rule ((= e (URem e1 e2)) (VProxy e1) (VProxy e2) (= w (Width e1)))
+    ((solvers-urem e1 e2 e w) (set (VProxy e) (proxy e w))) :ruleset snitch)
+
 ; ### Additional queries
 
 ; Linear solver also needs to listen to multiplications by constant

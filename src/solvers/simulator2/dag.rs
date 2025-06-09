@@ -36,6 +36,8 @@ pub(in crate::solvers) enum Operation {
     Shl,
     LShr,
     AShr,
+    UDiv,
+    URem,
 }
 
 impl std::fmt::Display for Operation {
@@ -59,6 +61,8 @@ impl std::fmt::Display for Operation {
             Operation::Ult => write!(f, "ult"),
             Operation::Sle => write!(f, "sle"),
             Operation::Slt => write!(f, "slt"),
+            Operation::UDiv => write!(f, "udiv"),
+            Operation::URem => write!(f, "urem"),
             Operation::Constant { table_index } => write!(f, "constant#{table_index}"),
         }
     }

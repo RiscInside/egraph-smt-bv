@@ -82,6 +82,26 @@ impl Sort for BvConstSort {
             info,
             "*" = |a: C, b: C, w: i64| -> C { BvConst::wrap(a.0 * b.0, w) }
         );
+        add_primitives!(
+            info,
+            "/" = |a: C, b: C, w: i64| -> C {
+                if b.0.bits() == 0 {
+                    BvConst((BigUint::from(1u32) << w) - BigUint::from(1u32))
+                } else {
+                    BvConst(a.0 / b.0)
+                }
+            }
+        );
+        add_primitives!(
+            info,
+            "%" = |a: C, b: C| -> C {
+                if b.0.bits() == 0 {
+                    BvConst(BigUint::from(0u32))
+                } else {
+                    BvConst(a.0 % b.0)
+                }
+            }
+        );
         add_primitives!(info, "&" = |a: C, b: C| -> C { BvConst(a.0 & b.0) });
         add_primitives!(
             info,

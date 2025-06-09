@@ -146,6 +146,8 @@ impl Solvers {
         add_sim_binop("solvers-ult", Operation::Ult);
         add_sim_binop("solvers-sle", Operation::Sle);
         add_sim_binop("solvers-slt", Operation::Slt);
+        add_sim_binop("solvers-udiv", Operation::UDiv);
+        add_sim_binop("solvers-urem", Operation::URem);
 
         let mut add_sim_unop = |name: &'static str, unop| {
             egraph.add_primitive(AssertSimulatorUnOp {

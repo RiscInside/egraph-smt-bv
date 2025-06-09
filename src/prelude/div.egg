@@ -1,14 +1,26 @@
 ; <summary>div.egg - division and remainder rules</summary>
 
+; ### Division axiomatization
+
+; TODO: add additional constraints.
+
+(rule ((= e (UDiv e1 e2)))
+    ((union e1 (Add (Mul e2 e) (URem e1 e2)))) :ruleset slow)
+
 ; ### Division by zero
 
-; (rewrite (UDiv a (BvConst __0 w)) (BvConst (- (<< __1 w) __1) w) :subsume :ruleset fold)
-; (rewrite (URem a (BvConst __0 w)) a :subsume :ruleset fold)
+(rewrite (UDiv a (BvConst __0 w)) (BvConst (negate __1 w) w) :subsume :ruleset fold)
+(rewrite (URem a (BvConst __0 w)) a :subsume :ruleset fold)
+
+; ### Division by one
+
+(rewrite (UDiv a (BvConst __1 w)) a :subsume :ruleset fold)
+(rewrite (URem a (BvConst __1 w)) (BvConst __0 w) :subsume :ruleset fold)
 
 ; ### Constant folding
 
 ; `UDiv` and `URem` are implemented with `/` and `%` as both values are known to be unsigned.
 ; We need to check for 0 to respect SMT2LIB semantics.
 
-; (rewrite (UDiv (BvConst a w) (BvConst b _)) (BvConst (/ a b) w) :when ((!= b __0)) :subsume :ruleset fold)
-; (rewrite (URem (BvConst a w) (BvConst b _)) (BvConst (% a b) w) :when ((!= b __0)) :subsume :ruleset fold)
+(rewrite (UDiv (BvConst a w) (BvConst b _)) (BvConst (/ a b w) w) :when ((!= b __0)) :subsume :ruleset fold)
+(rewrite (URem (BvConst a w) (BvConst b _)) (BvConst (% a b) w) :when ((!= b __0)) :subsume :ruleset fold)

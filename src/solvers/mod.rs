@@ -149,26 +149,36 @@ impl Solvers {
         add_sim_binop("solvers-udiv", Operation::UDiv);
         add_sim_binop("solvers-urem", Operation::URem);
 
-        let mut add_sim_unop = |name: &'static str, unop| {
-            egraph.add_primitive(AssertSimulatorUnOp {
-                v_sort: v_sort.clone(),
-                int_sort: int_sort.clone(),
-                unit_sort: unit_sort.clone(),
-                name: name.into(),
-                handler: move |solver, operand, result, width| {
-                    solver.assert_is_unop(unop, operand, result, width);
-                },
-                solvers: solver.clone(),
-            });
-        };
-
-        add_sim_unop("solvers-not", Operation::Not);
-        add_sim_unop("solvers-neg", Operation::Neg);
-
-        egraph.add_primitive(AssertAdd {
+        egraph.add_primitive(AssertSimulatorUnOp {
             v_sort: v_sort.clone(),
-            unit_sort: unit_sort.clone(),
             int_sort: int_sort.clone(),
+            unit_sort: unit_sort.clone(),
+            name: "solvers-neg".into(),
+            handler: move |solver, operand, result, width| {
+                solver.assert_is_unop(Operation::Neg, operand, result, width);
+            },
+            solvers: solver.clone(),
+        });
+
+        egraph.add_primitive(AssertSimulatorUnOp {
+            v_sort: v_sort.clone(),
+            int_sort: int_sort.clone(),
+            unit_sort: unit_sort.clone(),
+            name: "solvers-not".into(),
+            handler: move |solver, operand, result, width| {
+                solver.assert_is_not(operand, result, width);
+            },
+            solvers: solver.clone(),
+        });
+
+        egraph.add_primitive(AssertSimulatorBinOp {
+            v_sort: v_sort.clone(),
+            int_sort: int_sort.clone(),
+            unit_sort: unit_sort.clone(),
+            name: "solvers-add".into(),
+            handler: move |solver, lhs, rhs, result, width| {
+                solver.assert_is_add(lhs, rhs, result, width);
+            },
             solvers: solver.clone(),
         });
 
@@ -254,6 +264,12 @@ impl Solvers {
         self.linear.assert_is_add(lhs, rhs, result, width);
     }
 
+    fn assert_is_not(&mut self, op: Value, result: Value, width: Width) {
+        self.sim_core
+            .add_operation(simulator2::Operation::Not, vec![op], result, width);
+        self.linear.assert_is_not(op, result, width);
+    }
+
     fn assert_is_mul_const(&mut self, lhs: Value, constant: Value, result: Value, width: Width) {
         let constant = self.load_constant(constant);
         self.linear.assert_is_scaled(lhs, constant, result, width);
@@ -292,47 +308,6 @@ impl Solvers {
             width,
         );
         self.linear.assert_is_constant(big_uint, val, width);
-    }
-}
-
-struct AssertAdd {
-    v_sort: ArcSort,
-    unit_sort: Arc<UnitSort>,
-    int_sort: Arc<I64Sort>,
-    solvers: Arc<Mutex<Solvers>>,
-}
-
-impl PrimitiveLike for AssertAdd {
-    fn name(&self) -> Symbol {
-        "solvers-add".into()
-    }
-
-    fn get_type_constraints(
-        &self,
-        span: &egglog::ast::Span,
-    ) -> Box<dyn egglog::constraint::TypeConstraint> {
-        Box::new(egglog::constraint::SimpleTypeConstraint::new(
-            "solvers-add".into(),
-            vec![
-                self.v_sort.clone(),
-                self.v_sort.clone(),
-                self.v_sort.clone(),
-                self.int_sort.clone(),
-                self.unit_sort.clone(),
-            ],
-            span.clone(),
-        ))
-    }
-
-    fn apply(
-        &self,
-        values: &[Value],
-        _sorts: (&[ArcSort], &ArcSort),
-        _egraph: Option<&mut EGraph>,
-    ) -> Option<Value> {
-        let solver = &mut self.solvers.lock().unwrap();
-        solver.assert_is_add(values[0], values[1], values[2], values[3].bits);
-        Some(Value::unit())
     }
 }
 

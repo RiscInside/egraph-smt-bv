@@ -884,6 +884,17 @@ impl<V: Variable> Solver<V> {
         });
     }
 
+    pub(crate) fn assert_is_not(&mut self, operand: V, result: V, width: Width) {
+        self.assert_is_zero(LinearFunction {
+            width,
+            var_coeff_pairs: vec![
+                (BigUint::from(1u32), operand),
+                (BigUint::from(1u32), result),
+            ],
+            lhs_constant: BigUint::from(1u32),
+        });
+    }
+
     pub(crate) fn assert_is_constant(&mut self, constant: BigUint, result: V, width: Width) {
         self.assert_is_zero(LinearFunction {
             width,

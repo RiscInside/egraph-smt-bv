@@ -13,13 +13,6 @@
 
 (rewrite (Add x (BvConst __0 _)) x :subsume :ruleset fold)
 
-; ### Going from `Neg` to `Not` and back
-
-; We can now use `Add` operator to convert between `Neg` and `Not`.
-
-(rewrite (Neg e) (Add (Not e) (BvConst __1 w)) :when ((= w (Width e))) :ruleset explosive)
-(rewrite (Not e) (Add (Neg e) (BvConst (negate __1 w) w)) :when ((= w (Width e))) :ruleset explosive)
-
 ; ### Constant folding
 
 ; Constants can pass through `Add`.

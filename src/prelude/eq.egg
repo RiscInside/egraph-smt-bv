@@ -46,8 +46,10 @@
 
 ; ### Replacing equality with equality with 0
 
-; This allows linear solver to equate different ways of checking for equality. Note that this rule is idempotent -
-; applying it again to the generated Equals node would yield (Equal __0 (Add (BvConst __0 w) (Add a (Neg b)))).
-; Note also that we can't test against (BvConst __0 w) here, as such constant might not exist.
+; `Equal a b` and `Equal c d` are the same if a - b = c - d. We make use of this by rewriting `Equal` to `EqualZero`.
+; We do not need to give constant propogation/width propogation width rules for this new operator as there will always
+; be a matching `Equal` node in the same e-class.
 
-(rewrite (Equal a b) (Equal (BvConst __0 w) (Add a (Neg b))) :when ((= w (Width a))) :ruleset slow)
+(constructor EqualZero (V) V)
+
+(rewrite (Equal a b) (EqualZero (Add a (Neg b))) :when ((= a (ordering-min a b))) :ruleset slow)

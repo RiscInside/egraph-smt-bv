@@ -52,7 +52,7 @@ impl Variable for Value {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub(crate) enum Hypothesis<V: Variable> {
     Equal(V, V),
     IsConstant(V, BigUint, Width),
@@ -631,27 +631,61 @@ impl PrimitiveLike for AssertInput {
     }
 }
 
+fn report_inferred_fact(
+    egraph: &mut EGraph,
+    v_symbol: Symbol,
+    v_sort: &ArcSort,
+    inference: Hypothesis<Value>,
+) -> bool {
+    match inference {
+        Hypothesis::Equal(lhs, rhs) => {
+            let lhs = egraph.find(v_sort, lhs);
+            let rhs = egraph.find(v_sort, rhs);
+
+            egraph.union(lhs.bits, rhs.bits, v_symbol);
+            lhs.bits != rhs.bits
+        }
+        Hypothesis::IsConstant(lhs, value, width) => {
+            let (_, result) = egraph
+                .eval_expr(&call!(
+                    "BvConst",
+                    [
+                        call!(
+                            "bvconst-from-string",
+                            [lit!(Symbol::from(value.to_string()))]
+                        ),
+                        lit!(i64::try_from(width).unwrap())
+                    ]
+                ))
+                .unwrap();
+
+            egraph.union(lhs.bits, result.bits, v_symbol);
+            lhs.bits != result.bits
+        }
+    }
+}
+
 impl Context {
     pub(crate) fn linsolve_tactic(&mut self) -> PlanResult<bool> {
         self.egraph.rebuild_nofail();
         self.text("Running linsolve tactic")?;
 
-        let mut unions_count = 0;
-        {
+        let (inferences, v_symbol, v_sort) = {
             let mut solvers_guard = self.solvers.lock().unwrap();
             let solvers = solvers_guard.deref_mut();
 
-            // Push equalities from the union solver
-            let v_symbol = solvers.v_symbol;
-            solvers.linear.solve_all_pending(|lhs, rhs| {
-                let lhs = self.egraph.find(&solvers.v_sort, lhs);
-                let rhs = self.egraph.find(&solvers.v_sort, rhs);
+            (
+                solvers.linear.solve_all_pending(),
+                solvers.v_symbol,
+                solvers.v_sort.clone(),
+            )
+        };
 
-                if lhs != rhs {
-                    unions_count += 1;
-                    self.egraph.union(lhs.bits, rhs.bits, v_symbol);
-                }
-            });
+        let mut unions_count = 0;
+        for inference in inferences {
+            if report_inferred_fact(&mut self.egraph, v_symbol, &v_sort, inference) {
+                unions_count += 1;
+            }
         }
 
         // Rebuild the e-graph again
@@ -689,7 +723,7 @@ impl Context {
         self.egraph.rebuild_nofail();
         self.text("Running smt-one tactic")?;
 
-        let (hypotheses, v_symbol, remaining) = {
+        let (hypotheses, v_symbol, v_sort, remaining) = {
             let mut solvers_guard = self.solvers.lock().unwrap();
             let solvers = solvers_guard.deref_mut();
 
@@ -703,39 +737,20 @@ impl Context {
             (
                 hypotheses,
                 solvers.v_symbol,
+                solvers.v_sort.clone(),
                 solvers.sim_core.hypotheses_pending(),
             )
         };
 
-        // Reflect the hypothesis back to the e-graph
-        match hypotheses {
-            Hypothesis::Equal(lhs, rhs) => {
-                self.egraph.union(lhs.bits, rhs.bits, v_symbol);
-            }
-            Hypothesis::IsConstant(lhs, value, width) => {
-                let (_, result) = self
-                    .egraph
-                    .eval_expr(&call!(
-                        "BvConst",
-                        [
-                            call!(
-                                "bvconst-from-string",
-                                [lit!(Symbol::from(value.to_string()))]
-                            ),
-                            lit!(i64::try_from(width).unwrap())
-                        ]
-                    ))
-                    .unwrap();
-                self.egraph.union(lhs.bits, result.bits, v_symbol);
-            }
-        }
+        let made_progress = report_inferred_fact(&mut self.egraph, v_symbol, &v_sort, hypotheses);
 
-        // Rebuild the e-graph again
         self.egraph.rebuild_nofail();
 
-        self.text(&format!(
-            "SMT solver contributed to the e-graph. {remaining} hypothesis left to solve"
-        ))?;
+        if made_progress {
+            self.text(&format!(
+                "SMT solver contributed to the e-graph. {remaining} hypothesis left to solve"
+            ))?;
+        }
 
         Ok(true)
     }

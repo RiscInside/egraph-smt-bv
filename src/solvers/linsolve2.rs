@@ -75,7 +75,7 @@ use std::{
     hash::{BuildHasher, Hash},
 };
 
-use crate::solvers::{Variable, Width};
+use crate::solvers::{Hypothesis, Variable, Width};
 use hashbrown::{hash_map, DefaultHashBuilder, HashMap, HashTable};
 use itertools::Itertools as _;
 use num_bigint::BigUint;
@@ -289,6 +289,8 @@ impl<V: Variable> Context<V> {
 /// be potentially be dealing with thousands of values, this implementation
 /// is entirely non-recursive
 mod canon {
+    use crate::solvers::Hypothesis;
+
     use super::*;
 
     /// One of the recursive canonicalizations in-flight.
@@ -544,7 +546,7 @@ mod canon {
             }
         }
 
-        pub(super) fn canonicalize_all_bottom_up(&mut self, mut report_equality: impl FnMut(V, V)) {
+        pub(super) fn canonicalize_all_bottom_up(&mut self, inferences: &mut Vec<Hypothesis<V>>) {
             let mut worklist = std::mem::take(&mut self.need_recanonicalization);
 
             while let Some((parity, Reverse(var))) = worklist.pop_last() {
@@ -612,7 +614,19 @@ mod canon {
                         .mappings
                         .contains_key(&definition.equation.var_coeff_pairs[0].1)
                 {
-                    report_equality(var, definition.equation.var_coeff_pairs[0].1);
+                    inferences.push(Hypothesis::Equal(
+                        var,
+                        definition.equation.var_coeff_pairs[0].1,
+                    ));
+                }
+
+                // Check if definition is a constant
+                if definition.equation.var_coeff_pairs.is_empty() {
+                    inferences.push(Hypothesis::IsConstant(
+                        var,
+                        definition.equation.lhs_constant.clone(),
+                        definition.equation.width,
+                    ));
                 }
 
                 // Update hash for the parity 0 definition and discover equalities
@@ -623,7 +637,7 @@ mod canon {
                     self.mappings[other].equation == definition.equation
                 }) {
                     // Discovered a match!
-                    report_equality(*mapping.get(), var);
+                    inferences.push(Hypothesis::Equal(*mapping.get(), var));
                 }
 
                 // Insert mapping for the equation
@@ -890,14 +904,16 @@ impl<V: Variable> Solver<V> {
         }
     }
 
-    pub(crate) fn solve_all_pending(&mut self, report_equalities: impl FnMut(V, V)) {
+    pub(crate) fn solve_all_pending(&mut self) -> Vec<Hypothesis<V>> {
+        let mut inferences = vec![];
         let mut worklist = std::mem::take(&mut self.pending_equations);
         while let Some(equation) = worklist.pop() {
             self.context
                 .solve_step(equation, |equation| worklist.push(equation));
         }
-        self.context.canonicalize_all_bottom_up(report_equalities);
+        self.context.canonicalize_all_bottom_up(&mut inferences);
         self.remove_noncanonical();
+        inferences
     }
 }
 
@@ -946,10 +962,7 @@ mod test {
         });
 
         // Solve equations submitted to the system
-        solver.solve_all_pending(|_, _| {
-            // No equalities in this problem
-            unreachable!();
-        });
+        assert!(solver.solve_all_pending().is_empty());
 
         // Since we don't know the exact expected output, we can use a placeholder expectation
         // and then update it with the actual output after first run
@@ -1064,10 +1077,7 @@ mod test {
         });
 
         // Solve equations submitted to the system
-        let mut pending_equalities = vec![];
-        solver.solve_all_pending(|lhs, rhs| {
-            pending_equalities.push((std::cmp::min(lhs, rhs), std::cmp::max(lhs, rhs)));
-        });
+        let inferences = solver.solve_all_pending();
 
         let expected = expect![[r#"
             {{
@@ -1084,7 +1094,18 @@ mod test {
         let actual = format!("{}", solver.context);
         expected.assert_eq(&actual);
         // Assert that solver inferred v1 == v2 and v4 == v6
-        assert_eq!(pending_equalities, vec![(1, 2), (4, 6)]);
+        assert_eq!(
+            inferences,
+            vec![
+                Hypothesis::Equal(2, 1),
+                Hypothesis::IsConstant(3, BigUint::from(14u32), 4),
+                Hypothesis::IsConstant(4, BigUint::from(2u32), 4),
+                Hypothesis::IsConstant(5, BigUint::from(1u32), 4),
+                Hypothesis::IsConstant(6, BigUint::from(2u32), 4),
+                Hypothesis::Equal(4, 6),
+                Hypothesis::IsConstant(8, BigUint::from(15u32), 4)
+            ]
+        );
     }
 
     #[test]
@@ -1096,10 +1117,10 @@ mod test {
         solver.assert_is_add(1, 23, 100, 32);
         solver.assert_is_add(12, 3, 200, 32);
 
-        solver.solve_all_pending(|lhs, rhs| {
-            assert_eq!(std::cmp::min(lhs, rhs), 100);
-            assert_eq!(std::cmp::max(lhs, rhs), 200);
-        });
+        assert_eq!(
+            solver.solve_all_pending(),
+            vec![Hypothesis::Equal(100, 200)]
+        );
 
         let expected = expect![[r#"
             {{
@@ -1122,10 +1143,7 @@ mod test {
         solver.assert_is_add(1, 2, 4, 32);
         solver.assert_is_equal(4, 3, 32);
 
-        let mut pending_equalities = vec![];
-        solver.solve_all_pending(|lhs, rhs| {
-            pending_equalities.push((lhs, rhs));
-        });
+        let inferences = solver.solve_all_pending();
 
         // Note no mention of v4
         let expected = expect![[r#"
@@ -1139,6 +1157,6 @@ mod test {
         expected.assert_eq(&actual);
 
         // We currently push equalities back to the user, but that's probably not a huge deal
-        assert_eq!(pending_equalities, vec![(3, 4)]);
+        assert_eq!(inferences, vec![Hypothesis::Equal(3, 4)]);
     }
 }

@@ -46,6 +46,8 @@
 
 ; ### Replacing equality with equality with 0
 
-; This allows linear solver to equate different ways of checking for equality.
+; This allows linear solver to equate different ways of checking for equality. Note that this rule is idempotent -
+; applying it again to the generated Equals node would yield (Equal __0 (Add (BvConst __0 w) (Add a (Neg b)))).
+; Note also that we can't test against (BvConst __0 w) here, as such constant might not exist.
 
-(rewrite (Equal a b) (Equal (BvConst __0 w) (Add a (Neg b))) :when ((!= b (BvConst __0 w)) (!= a (BvConst __0 w)) (= w (Width a))) :ruleset slow)
+(rewrite (Equal a b) (Equal (BvConst __0 w) (Add a (Neg b))) :when ((= w (Width a))) :ruleset slow)

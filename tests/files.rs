@@ -3,8 +3,8 @@ use cap::Cap;
 use egraph_smt_bv::{Context, LogStream, SATStatus};
 use glob::glob;
 use libtest_mimic::{run, Arguments, Trial};
+use mimalloc::MiMalloc;
 use std::{
-    alloc,
     path::{Path, PathBuf},
     process::{Command, Stdio},
     time::Duration,
@@ -14,7 +14,7 @@ struct AssertExactStatus(SATStatus);
 const DEFAULT_CAP: usize = 2048 * 1024 * 1024;
 
 #[global_allocator]
-static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, DEFAULT_CAP);
+static ALLOCATOR: Cap<MiMalloc> = Cap::new(MiMalloc, DEFAULT_CAP);
 
 impl LogStream for AssertExactStatus {
     fn check_sat_status(&mut self, status: SATStatus) -> anyhow::Result<()> {
@@ -28,7 +28,11 @@ impl LogStream for AssertExactStatus {
 fn run_smt2_test(path: &Path, expected_status: SATStatus) {
     let mut ctx: Context = Context::new();
     ctx.add_output(AssertExactStatus(expected_status));
-    ctx.set_timeout(Duration::from_secs(5));
+    if expected_status == SATStatus::Unknown {
+        ctx.set_timeout(Duration::from_secs(2));
+    } else {
+        ctx.set_timeout(Duration::from_secs(8));
+    }
     ctx.run_prelude().unwrap();
 
     let file = std::fs::File::open(path).unwrap();

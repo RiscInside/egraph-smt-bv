@@ -76,8 +76,6 @@ impl Plan {
             Plan::Leaf(Tactic::RunRuleset(Symbol::from("fold"))),
             Plan::Leaf(Tactic::RunRuleset(Symbol::from("eq"))),
         ]);
-        // Run the `once` ruleset with very explosive rules
-        let run_once = Plan::Leaf(Tactic::RunRuleset(Symbol::from("once")));
 
         // This block always terminates
         let mut safe_block = Plan::Saturate(vec![
@@ -139,7 +137,6 @@ impl Plan {
             Plan::Saturate(vec![Plan::Leaf(Tactic::RunRuleset("snitch".into()))]),
             safe_block,
             if_simplifications,
-            run_once,
             repeat_block,
         ])
     }

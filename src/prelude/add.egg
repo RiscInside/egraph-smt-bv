@@ -70,10 +70,6 @@
 
 (rewrite (ZeroExtend n1 (ZeroExtend n2 e)) (ZeroExtend (+ n1 n2) e) :subsume :ruleset fold)
 
-; ### Pushing zero-extensions outwards
-
-(rewrite (ZeroExtend n (Add (ZeroExtend n1 a) (ZeroExtend n2 b))) (Add (ZeroExtend (+ n n1) a) (ZeroExtend (+ n n2) b)) :ruleset slow)
-
 ; ### Concat is Add, actually
 
 (rewrite (Concat a b) (Add (Mul (ZeroExtend wb a) (BvConst (bit-at wb) (+ wa wb))) (ZeroExtend wa b)) :when ((= wa (Width a)) (= wb (Width b))) :ruleset slow)

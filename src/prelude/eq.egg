@@ -52,4 +52,4 @@
 
 (constructor EqualZero (V) V)
 
-(rewrite (Equal a b) (EqualZero (Add a (Neg b))) :when ((= a (ordering-min a b))) :ruleset slow)
+(rewrite (Equal a b) (EqualZero (Add a (Neg b))) :ruleset explosive)

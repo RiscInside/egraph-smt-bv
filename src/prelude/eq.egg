@@ -53,3 +53,6 @@
 (constructor EqualZero (V) V)
 
 (rewrite (Equal a b) (EqualZero (Add a (Neg b))) :ruleset explosive)
+
+(rewrite (EqualZero (BvConst c w)) ff :when ((!= c __0)) :subsume :ruleset fold)
+(rewrite (EqualZero (BvConst __0 w)) tt :subsume :ruleset fold)

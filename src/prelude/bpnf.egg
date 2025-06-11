@@ -104,6 +104,10 @@
 
 (rewrite (Concat (BvConst a w1) (BvConst b w2)) (BvConst (concat a b w2) (+ w1 w2)) :subsume :ruleset fold)
 
+; This is a specialization of the rule above to catch re-assocations.
+
+(rewrite (Concat (Concat rest (BvConst a w1)) (BvConst b w2)) (Concat rest (BvConst (concat a b w2) (+ w1 w2))) :subsume :ruleset fold)
+
 (rewrite (Extract i j (BvConst a w)) (BvConst (extract i j a) (+ 1 (- i j))) :subsume :ruleset fold)
 
 ; Pushing and pulling extracts through operators

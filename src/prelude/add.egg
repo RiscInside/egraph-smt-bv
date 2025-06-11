@@ -31,10 +31,6 @@
 
 (rewrite (Add a b) (Add b a) :ruleset safe)
 
-; To make this rule safe, we need to also discover contradictions in timely matter.
-
-(rule ((= x (Add x (BvConst a _))) (!= a __0)) ((set (ProvenUnsat) true)) :ruleset fold)
-
 ; ### Explosive associativity
 
 (rewrite (Add (Add a b) c) (Add a (Add b c)) :ruleset explosive)

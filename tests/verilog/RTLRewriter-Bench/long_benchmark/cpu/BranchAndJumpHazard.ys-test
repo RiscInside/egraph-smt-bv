@@ -1,0 +1,7 @@
+read_verilog BranchAndJumpHazard.v
+read_verilog BranchAndJumpHazardRaw.v
+hierarchy
+memory
+proc
+miter -equiv -make_assert BranchAndJumpHazard BranchAndJumpHazard_raw miter
+write_smt2 -tpl ../../../one_miter.tpl -stbv BranchAndJumpHazard.generated.unsat.smt2

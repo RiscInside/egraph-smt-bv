@@ -576,6 +576,15 @@ impl<V: Variable> Dag<V> {
         output: V,
         width: Width,
     ) {
+        // If node already has an equation, ignore new one
+        if self
+            .mappings
+            .get(&output)
+            .is_some_and(|operation| matches!(operation.recipe, Recipe::Computed { .. }))
+        {
+            return;
+        }
+
         // SAFETY: Cell<V> and V have the same representation
         let inputs: Vec<Cell<V>> = unsafe { std::mem::transmute(inputs) };
 

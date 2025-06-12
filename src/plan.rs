@@ -118,7 +118,10 @@ impl Plan {
 
         if use_smt {
             unsafe_block_seq.insert(0, Plan::Leaf(Tactic::MineHypothesis));
-            unsafe_block_seq.insert(1, Plan::Leaf(Tactic::RunSMTSolveOne));
+            unsafe_block_seq.push(Plan::Saturate(vec![
+                Plan::Leaf(Tactic::RunSMTSolveOne),
+                safe_block.clone(),
+            ]));
         }
 
         let unsafe_block = Plan::Seq(unsafe_block_seq);

@@ -1,6 +1,7 @@
 # %%
 import subprocess
 
+import json
 import time
 import os
 from pathlib import Path
@@ -19,6 +20,9 @@ SOLVER_CMDLINES = [[str(SOLVER_PATH), '<INPUT>', '-t', str(TIME_LIMIT_SECONDS * 
 
 if 'BITWUZLA_PATH' in os.environ:
     SOLVER_CMDLINES.append([os.environ['BITWUZLA_PATH'], '-t', str(TIME_LIMIT_SECONDS), '<INPUT>'])
+
+if 'CVC5_PATH' in os.environ:
+    SOLVER_CMDLINES.append([os.environ['CVC5_PATH'], f'--tlimit={TIME_LIMIT_SECONDS * 1000}', '<INPUT>'])
 
 print(SOLVER_CMDLINES)
 
@@ -44,7 +48,7 @@ for solver_cmdline in SOLVER_CMDLINES:
     benchmark_results[solver_cmdline[0]] = {}
 
 for (benchmark_path, benchmark_name) in BENCHMARKS:
-    print(f"Running script for the bench `{benchmark_name}`")
+    print(f"Running script for the bench {benchmark_name} (`{benchmark_path}`)")
     futures = []
     for solver_cmdline in SOLVER_CMDLINES:
         solver = solver_cmdline[0]
@@ -52,7 +56,7 @@ for (benchmark_path, benchmark_name) in BENCHMARKS:
         start = time.time()
         process = Popen(cmdline, env=os.environ, stdout=PIPE, stderr=DEVNULL, text=True)
         try:
-            out, _ = process.communicate(timeout=1.0)
+            out, err = process.communicate(timeout=1.0)
             solved = out.strip() == 'unsat'
             if solved:
                 print(f'{solver} quickly solved {benchmark_name}')
@@ -75,6 +79,9 @@ for (benchmark_path, benchmark_name) in BENCHMARKS:
         except TimeoutExpired:
             print(f"{solver} timeouted on {benchmark_name}")
             benchmark_results[solver][benchmark_name] = 'unsolved'
+    
+    with open(REPO_PATH / 'scripts' / 'eval.json', 'w') as out:
+        json.dump(benchmark_results, out, indent=2)
 
 benchmark_results
 # %%

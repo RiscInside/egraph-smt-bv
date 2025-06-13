@@ -48,6 +48,8 @@ subprocess.run(['cargo', 'build', '--release'])
 # %%
 
 BENCHMARKS = [(str(path), path.name) for path in REPO_PATH.rglob('*.generated.unsat.smt2')]
+# these are the problems we can't solve, but still provided for completeness
+BENCHMARKS += [(str(path), path.name) for path in REPO_PATH.rglob('*.too.hard.smt2')]
 BENCHMARKS.sort()
 
 BENCHMARKS
@@ -68,6 +70,8 @@ for (benchmark_path, benchmark_name) in BENCHMARKS:
         process = Popen(cmdline, env=os.environ, stdout=PIPE, stderr=DEVNULL, text=True)
         try:
             out, err = process.communicate(timeout=1.0)
+            assert out.strip() != 'sat'
+
             solved = out.strip() == 'unsat'
             if solved:
                 print(f'{solver} quickly solved {benchmark_name}')
@@ -81,6 +85,8 @@ for (benchmark_path, benchmark_name) in BENCHMARKS:
     for solver, start, process in futures:
         try:
             out, _ = process.communicate(timeout=TIME_LIMIT_SECONDS + start - time.time())
+            assert out.strip() != 'sat'
+
             solved = out.strip() == 'unsat'
             if solved:
                 print(f'{solver} eventually solved {benchmark_name}')

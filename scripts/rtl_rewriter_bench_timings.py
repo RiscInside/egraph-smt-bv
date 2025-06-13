@@ -14,6 +14,8 @@ def add_bitwuzla_at(path):
 # %%
 
 TIME_LIMIT_SECONDS = 600
+# 4gb in kb
+MEMORY_LIMIT = 4194304
 REPO_PATH = Path(__file__).parent.parent
 SOLVER_PATH = REPO_PATH / 'target' / 'release' / 'egraph-smt-bv'
 # Must be in path
@@ -65,9 +67,10 @@ for (benchmark_path, benchmark_name) in BENCHMARKS:
     futures = []
     for solver_cmdline in SOLVER_CMDLINES:
         solver = solver_cmdline[0]
-        cmdline = list(map(lambda arg: arg if arg != '<INPUT>' else benchmark_path, solver_cmdline))
+        cmdline = f'ulimit -Sv {MEMORY_LIMIT} && ulimit -Hv {MEMORY_LIMIT} && ' + ' '.join(list(map(lambda arg: arg if arg != '<INPUT>' else benchmark_path, solver_cmdline)))
+        print(cmdline)
         start = time.time()
-        process = Popen(cmdline, env=os.environ, stdout=PIPE, stderr=DEVNULL, text=True)
+        process = Popen(cmdline, env=os.environ, stdout=PIPE, stderr=DEVNULL, text=True, shell=True)
         try:
             out, err = process.communicate(timeout=1.0)
             assert out.strip() != 'sat'

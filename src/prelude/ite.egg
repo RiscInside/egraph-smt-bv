@@ -84,7 +84,7 @@
 ; ### ITE equivalences
 
 (rule ((= e (Assume c (ITE c t o)))) ((union e (Assume c t))) :ruleset safe)
-(rule ((= e (Assume c (ITE c t o)))) ((union e (Assume (Not c) o))) :ruleset safe)
+(rule ((= e (Assume (Not c) (ITE c t o)))) ((union e (Assume (Not c) o))) :ruleset safe)
 
 ; ### Building conditional equivalence bottom-up 
 
@@ -175,5 +175,4 @@
 
 ; ### Switching condition to `Or`
 
-(rewrite (ITE a (ITE b x y) x) (ITE (Or a b) x y) :ruleset slow)
 (rewrite (ITE a x (ITE b x y)) (ITE (Or a b) x y) :ruleset slow)

@@ -1,11 +1,10 @@
 read_verilog optimized.v
 read_verilog unoptimized.v
-read_verilog claude3_attempt.v
+read_verilog claude3_attempt.v # wrong, see the file
 read_verilog gpt4_attempt.v
 hierarchy
 memory
 proc
 miter -equiv -make_assert optimized unoptimized miter1
 miter -equiv -make_assert optimized gpt4_attempt miter2
-miter -equiv -make_assert optimized claude3_attempt miter3
-write_smt2 -tpl ../../../three_miters.tpl -stbv mux_dead_code.generated.unsat.smt2
+write_smt2 -tpl ../../../two_miters.tpl -stbv mux_dead_code.generated.unsat.smt2

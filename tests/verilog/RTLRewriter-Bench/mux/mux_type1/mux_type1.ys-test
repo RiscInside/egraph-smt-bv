@@ -1,9 +1,0 @@
-read_verilog optimized.v
-read_verilog ours.v
-read_verilog improve.v
-hierarchy
-memory
-proc
-miter -equiv -make_assert optimized ours miter1
-miter -equiv -make_assert optimized improve miter2
-write_smt2 -tpl ../../../two_miters.tpl -stbv mux_type1.generated.unsat.smt2

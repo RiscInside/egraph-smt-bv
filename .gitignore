@@ -7,3 +7,4 @@
 *.out.html
 *.generated.unsat.smt2
 playground.smt2
+**/eval.json

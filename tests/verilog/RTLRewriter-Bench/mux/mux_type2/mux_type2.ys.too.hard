@@ -6,4 +6,4 @@ memory
 proc
 miter -equiv -make_assert optimized unoptimized miter1
 miter -equiv -make_assert optimized improve miter2
-write_smt2 -tpl ../../../two_miters.tpl -stbv mux_type2.generated.unsat.smt2
+write_smt2 -tpl ../../../two_miters.tpl -stbv mux_type2.too.hard.smt2

@@ -4,4 +4,4 @@ hierarchy
 memory
 proc
 miter -equiv -make_assert optimized unoptimized miter
-write_smt2 -tpl ../../../one_miter.tpl -stbv if_priority.generated.unsat.smt2
+write_smt2 -tpl ../../../one_miter.tpl -stbv if_priority.generated.smt2

@@ -18,7 +18,7 @@ claude3_alu alu_module(
 
 always @(*) begin
     if (x) begin
-        result = alu_result;
+        result = alu_result; // wrong, as alu_result will be a + b - b
     end else begin
         result = a | b;
     end

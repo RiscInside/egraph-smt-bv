@@ -4,4 +4,4 @@ hierarchy
 memory
 proc
 miter -equiv -make_assert unoptimized optimized miter
-write_smt2 -tpl ../../../one_miter.tpl -stbv multiplier_architecture.generated.unsat.smt2
+write_smt2 -tpl ../../../one_miter.tpl -stbv multiplier_architecture.too.hard.smt2

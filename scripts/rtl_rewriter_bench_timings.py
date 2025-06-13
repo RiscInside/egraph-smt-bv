@@ -4,6 +4,7 @@ import subprocess
 import json
 import time
 import os
+import shutil
 from pathlib import Path
 from subprocess import Popen, DEVNULL, PIPE, TimeoutExpired
 
@@ -12,17 +13,27 @@ def add_bitwuzla_at(path):
 
 # %%
 
-TIME_LIMIT_SECONDS = 60
+TIME_LIMIT_SECONDS = 600
 REPO_PATH = Path(__file__).parent.parent
 SOLVER_PATH = REPO_PATH / 'target' / 'release' / 'egraph-smt-bv'
 # Must be in path
 SOLVER_CMDLINES = [[str(SOLVER_PATH), '<INPUT>', '-t', str(TIME_LIMIT_SECONDS * 1000)], ['z3', f'-T:{TIME_LIMIT_SECONDS}', '<INPUT>']]
 
 if 'BITWUZLA_PATH' in os.environ:
-    SOLVER_CMDLINES.append([os.environ['BITWUZLA_PATH'], '-t', str(TIME_LIMIT_SECONDS), '<INPUT>'])
+    BITWZULA_PATH = os.environ['BITWZULA_PATH']
+else:
+    BITWZULA_PATH = shutil.which('bitwuzla')
 
 if 'CVC5_PATH' in os.environ:
-    SOLVER_CMDLINES.append([os.environ['CVC5_PATH'], f'--tlimit={TIME_LIMIT_SECONDS * 1000}', '<INPUT>'])
+    CVC5_PATH = os.environ['CVC5_PATH']
+else:
+    CVC5_PATH = shutil.which('cvc5')
+
+if BITWZULA_PATH:
+    SOLVER_CMDLINES.append([BITWZULA_PATH, '-t', str(TIME_LIMIT_SECONDS), '<INPUT>'])
+
+if CVC5_PATH:
+    SOLVER_CMDLINES.append([CVC5_PATH, f'--tlimit={TIME_LIMIT_SECONDS * 1000}', '<INPUT>'])
 
 print(SOLVER_CMDLINES)
 
@@ -62,7 +73,7 @@ for (benchmark_path, benchmark_name) in BENCHMARKS:
                 print(f'{solver} quickly solved {benchmark_name}')
             else:
                 print(f'{solver} gave up on solving {benchmark_name}')
-            benchmark_results[solver][benchmark_name] = (time.time() - start) if solved else 'unsolved'
+            benchmark_results[solver][benchmark_name] = round(1000 * (time.time() - start), 2) if solved else 'unsolved'
         except TimeoutExpired:
             # This problem is likely quite difficuilt
             futures.append((solver, start, process))
@@ -75,7 +86,7 @@ for (benchmark_path, benchmark_name) in BENCHMARKS:
                 print(f'{solver} eventually solved {benchmark_name}')
             else:
                 print(f'{solver} gave up on solving {benchmark_name}')
-            benchmark_results[solver][benchmark_name] = (time.time() - start) if solved else 'unsolved'
+            benchmark_results[solver][benchmark_name] = round(1000 * (time.time() - start), 2) if solved else 'unsolved'
         except TimeoutExpired:
             print(f"{solver} timeouted on {benchmark_name}")
             benchmark_results[solver][benchmark_name] = 'unsolved'

@@ -17,6 +17,8 @@ TIME_LIMIT_SECONDS = 600
 # 4gb in kb
 MEMORY_LIMIT = 4194304
 REPO_PATH = Path(__file__).parent.parent
+assert not (REPO_PATH / 'scripts' / 'eval.out.json').exists(), "Move old eval.out.json file to avoid overwrite"
+
 SOLVER_PATH = REPO_PATH / 'target' / 'release' / 'egraph-smt-bv'
 # Must be in path
 SOLVER_CMDLINES = [[str(SOLVER_PATH), '<INPUT>', '-t', str(TIME_LIMIT_SECONDS * 1000)], ['z3', f'-T:{TIME_LIMIT_SECONDS}', '<INPUT>']]
@@ -100,14 +102,8 @@ for (benchmark_path, benchmark_name) in BENCHMARKS:
             print(f"{solver} timeouted on {benchmark_name}")
             benchmark_results[solver][benchmark_name] = 'unsolved'
     
-    with open(REPO_PATH / 'scripts' / 'eval.json', 'w') as out:
+    with open(REPO_PATH / 'scripts' / 'eval.out.json', 'w') as out:
         json.dump(benchmark_results, out, indent=2)
 
 benchmark_results
-# %%
-
-import json
-with open(REPO_PATH / 'scripts' / 'eval.json', 'w') as out:
-    json.dump(benchmark_results, out, indent=2)
-
 # %%

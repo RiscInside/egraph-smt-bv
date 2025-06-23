@@ -6,5 +6,7 @@
 *.out.svg
 *.out.html
 *.generated.unsat.smt2
+*.out.tex
+*.out.smt2
 playground.smt2
 **/eval.json

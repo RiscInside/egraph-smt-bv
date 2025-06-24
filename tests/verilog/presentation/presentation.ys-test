@@ -1,0 +1,5 @@
+read_verilog gate.v
+read_verilog gold.v
+prep
+miter -equiv -make_assert gate gold miter
+write_smt2 -tpl ../one_miter.tpl -stbv presentation.generated.unsat.smt2 
